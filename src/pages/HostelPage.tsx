@@ -2,11 +2,12 @@ import { Box, CircularProgress, Grid, Paper, Typography } from "@mui/material";
 import HomeWorkRoundedIcon from "@mui/icons-material/HomeWorkRounded";
 import ApartmentRoundedIcon from "@mui/icons-material/ApartmentRounded";
 import DomainRoundedIcon from "@mui/icons-material/DomainRounded";
-import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
 import CheckCircleOutlineRoundedIcon from "@mui/icons-material/CheckCircleOutlineRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
+import ManRoundedIcon from "@mui/icons-material/ManRounded";
+import WomanRoundedIcon from "@mui/icons-material/WomanRounded";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -47,14 +48,25 @@ export default function HostelPage() {
     };
   }, [selectedBranchId]);
 
-  const chart = useMemo(
+  const hostelChart = useMemo(
     () => ({
-      labels: ["Vacant", "Occupied", "Partial", "Blocked"],
+      labels: [
+        "Vacant",
+        "Occupied",
+        "Partial",
+        "Blocked",
+        "Total Students",
+        "Mens",
+        "Women",
+      ],
       values: [
         stats?.vacantRooms || 0,
         stats?.occupiedRooms || 0,
         stats?.partialOccupiedRooms || 0,
         stats?.blockedRooms || 0,
+        stats?.totalHostelStudents || 0,
+        stats?.mensHostelStudents || 0,
+        stats?.womenHostelStudents || 0,
       ],
     }),
     [stats]
@@ -70,10 +82,10 @@ export default function HostelPage() {
 
   return (
     <Box>
-      <PageHeader subtitle="Tap a card to open hostels, quarters, blocks, or rooms." />
+      <PageHeader subtitle="Tap a card to open hostels, students, blocks, or rooms." />
 
       <Grid container spacing={{ xs: 1.75, sm: 2, md: 2.5 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Total Hostels"
             value={formatNumber(stats?.totalHostels || 0)}
@@ -83,7 +95,7 @@ export default function HostelPage() {
             onClick={() => navigate("/hostel/hostels")}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Total Quarters"
             value={formatNumber(stats?.totalQuarters || 0)}
@@ -94,7 +106,7 @@ export default function HostelPage() {
             delay={40}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Total Blocks"
             value={formatNumber(stats?.totalBlocks || 0)}
@@ -107,24 +119,12 @@ export default function HostelPage() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Total Rooms"
-            value={formatNumber(stats?.totalRooms || 0)}
-            subtitle="Same as student-hostel rooms"
-            accent="#C45C3A"
-            icon={<MeetingRoomRoundedIcon />}
-            onClick={() => navigate("/hostel/rooms")}
-            delay={120}
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
             title="Vacant"
             value={formatNumber(stats?.vacantRooms || 0)}
             subtitle="Available rooms"
             accent="#2F6F6A"
             icon={<CheckCircleOutlineRoundedIcon />}
-            onClick={() => navigate("/hostel/rooms")}
+            onClick={() => navigate("/hostel/rooms-vacant")}
             delay={160}
           />
         </Grid>
@@ -135,7 +135,7 @@ export default function HostelPage() {
             subtitle="Fully occupied"
             accent="#8B4A6B"
             icon={<PersonRoundedIcon />}
-            onClick={() => navigate("/hostel/rooms")}
+            onClick={() => navigate("/hostel/rooms-occupied")}
             delay={200}
           />
         </Grid>
@@ -146,7 +146,7 @@ export default function HostelPage() {
             subtitle="Partially filled"
             accent="#C45C26"
             icon={<GroupsRoundedIcon />}
-            onClick={() => navigate("/hostel/rooms")}
+            onClick={() => navigate("/hostel/rooms-partial")}
             delay={240}
           />
         </Grid>
@@ -157,8 +157,42 @@ export default function HostelPage() {
             subtitle="Not available"
             accent="#6B4E71"
             icon={<BuildRoundedIcon />}
-            onClick={() => navigate("/hostel/rooms")}
+            onClick={() => navigate("/hostel/rooms-blocked")}
             delay={280}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={4}>
+          <StatCard
+            title="Total Students in Hostel"
+            value={formatNumber(stats?.totalHostelStudents || 0)}
+            subtitle="Allocated to student hostel rooms"
+            accent="#0B2C34"
+            icon={<GroupsRoundedIcon />}
+            onClick={() => navigate("/hostel/students")}
+            delay={320}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <StatCard
+            title="Mens"
+            value={formatNumber(stats?.mensHostelStudents || 0)}
+            subtitle="Male students in hostel"
+            accent="#3A6B85"
+            icon={<ManRoundedIcon />}
+            onClick={() => navigate("/hostel/students-mens")}
+            delay={360}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <StatCard
+            title="Women"
+            value={formatNumber(stats?.womenHostelStudents || 0)}
+            subtitle="Female students in hostel"
+            accent="#8B4A6B"
+            icon={<WomanRoundedIcon />}
+            onClick={() => navigate("/hostel/students-women")}
+            delay={400}
           />
         </Grid>
 
@@ -179,29 +213,29 @@ export default function HostelPage() {
               variant="h6"
               sx={{ mb: 0.5, fontWeight: 600, fontSize: { xs: 16, md: 18 } }}
             >
-              Room status
+              Hostel status
             </Typography>
             <Typography
               variant="caption"
               color="text.secondary"
               sx={{ display: "block", mb: 1.5 }}
             >
-              Vacant, occupied, partial, and blocked rooms for the selected branch
+              Rooms and hostel students (Total / Mens / Women) for the selected branch
             </Typography>
             <BarChart
-              height={280}
+              height={300}
               series={[
                 {
-                  data: chart.values,
-                  label: "Rooms",
+                  data: hostelChart.values,
+                  label: "Count",
                   color: "#C45C3A",
                 },
               ]}
               xAxis={[
                 {
-                  data: chart.labels,
+                  data: hostelChart.labels,
                   scaleType: "band",
-                  tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" },
+                  tickLabelStyle: { fontSize: 10, fontFamily: "Josefin Sans" },
                 },
               ]}
               yAxis={[{ tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } }]}

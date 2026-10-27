@@ -75,8 +75,6 @@ type NavItem = {
 };
 
 const accountsChildren: NavChild[] = [
-  { label: "Hostel", path: "/hostel", icon: <HomeWorkRoundedIcon fontSize="small" /> },
-  { label: "Attendance", path: "/attendance", icon: <FactCheckRoundedIcon fontSize="small" /> },
   { label: "Bio Metrics", path: "/biometrics", icon: <FingerprintRoundedIcon fontSize="small" /> },
   {
     label: "Fee Category",
@@ -97,6 +95,8 @@ const navItems: NavItem[] = [
   { label: "Students", path: "/students", icon: <SchoolRoundedIcon fontSize="small" /> },
   { label: "Employees", path: "/employees", icon: <BadgeRoundedIcon fontSize="small" /> },
   { label: "Fees", path: "/fees", icon: <PaymentsRoundedIcon fontSize="small" /> },
+  { label: "Hostel", path: "/hostel", icon: <HomeWorkRoundedIcon fontSize="small" /> },
+  { label: "Attendance", path: "/attendance", icon: <FactCheckRoundedIcon fontSize="small" /> },
   {
     label: "Accounts",
     icon: <AccountBalanceWalletRoundedIcon fontSize="small" />,
@@ -121,6 +121,13 @@ const pageTitles: Record<string, string> = {
   "/hostel/quarters": "Quarters",
   "/hostel/blocks": "Blocks",
   "/hostel/rooms": "Rooms",
+  "/hostel/rooms-vacant": "Vacant Rooms",
+  "/hostel/rooms-occupied": "Occupied Rooms",
+  "/hostel/rooms-partial": "Partial Rooms",
+  "/hostel/rooms-blocked": "Blocked Rooms",
+  "/hostel/students": "Hostel Students",
+  "/hostel/students-mens": "Mens Students",
+  "/hostel/students-women": "Women Students",
   "/hostel": "Hostel",
   "/attendance": "Attendance",
   "/biometrics": "Bio Metrics",
@@ -146,10 +153,11 @@ const searchableMenus = [
   { label: "Classrooms", path: "/departments/classrooms", group: "Academics" },
   { label: "Subjects", path: "/departments/subjects", group: "Academics" },
   { label: "Class Schedules", path: "/departments/schedules", group: "Academics" },
-  { label: "Hostels", path: "/hostel/hostels", group: "Accounts" },
-  { label: "Quarters", path: "/hostel/quarters", group: "Accounts" },
-  { label: "Blocks", path: "/hostel/blocks", group: "Accounts" },
-  { label: "Rooms", path: "/hostel/rooms", group: "Accounts" },
+  { label: "Hostels", path: "/hostel/hostels", group: "Hostel" },
+  { label: "Hostel Students", path: "/hostel/students", group: "Hostel" },
+  { label: "Quarters", path: "/hostel/quarters", group: "Hostel" },
+  { label: "Blocks", path: "/hostel/blocks", group: "Hostel" },
+  { label: "Rooms", path: "/hostel/rooms", group: "Hostel" },
 ];
 
 const accountsChildPaths = accountsChildren.map((c) => c.path);

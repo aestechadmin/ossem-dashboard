@@ -35,6 +35,22 @@ export type HostelOverviewStats = {
   occupiedRooms: number;
   partialOccupiedRooms: number;
   blockedRooms: number;
+  totalHostelStudents: number;
+  mensHostelStudents: number;
+  womenHostelStudents: number;
+};
+
+export type HostelStudentItem = {
+  id: number;
+  rollNumber: string;
+  name: string;
+  mobile: string;
+  gender: string;
+  course: string;
+  specialization: string;
+  courseYear: string;
+  room: string;
+  block: string;
 };
 
 export type DepartmentStats = {
@@ -546,7 +562,18 @@ export async function fetchHostelBlocks(branch?: number | null, paging?: Paginat
   return data;
 }
 
-export async function fetchHostelRooms(branch?: number | null, paging?: PaginatedParams) {
+export type HostelRoomStatusFilter =
+  | "all"
+  | "AVAILABLE"
+  | "FULL_OCCUPIED"
+  | "PARTIAL_OCCUPIED"
+  | "NOT_AVAILABLE";
+
+export async function fetchHostelRooms(
+  branch?: number | null,
+  paging?: PaginatedParams,
+  status?: HostelRoomStatusFilter
+) {
   const { data } = await api.get<PaginatedResult<Record<string, string | number>>>(
     "/admin-portal/hostel/rooms",
     {
@@ -554,6 +581,26 @@ export async function fetchHostelRooms(branch?: number | null, paging?: Paginate
         branch: branch || undefined,
         page: paging?.page || 1,
         pageSize: paging?.pageSize || 50,
+        status: status && status !== "all" ? status : undefined,
+      },
+    }
+  );
+  return data;
+}
+
+export async function fetchHostelStudents(
+  branch?: number | null,
+  paging?: PaginatedParams,
+  gender?: "all" | "mens" | "women"
+) {
+  const { data } = await api.get<PaginatedResult<HostelStudentItem>>(
+    "/admin-portal/hostel/students",
+    {
+      params: {
+        branch: branch || undefined,
+        page: paging?.page || 1,
+        pageSize: paging?.pageSize || 50,
+        gender: gender && gender !== "all" ? gender : undefined,
       },
     }
   );
