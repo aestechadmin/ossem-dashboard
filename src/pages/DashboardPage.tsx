@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, Paper, Typography } from "@mui/material";
+import { Box, CircularProgress, Grid, Paper, Tooltip, Typography } from "@mui/material";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import HowToRegRoundedIcon from "@mui/icons-material/HowToRegRounded";
 import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
@@ -60,14 +60,27 @@ export default function DashboardPage() {
 
   const barData = useMemo(() => {
     const rows = studentStats?.byCourse || [];
+    const fullLabels = rows.map((r) => String(r.label || "").trim());
+    // Compact left labels — start of name only; hover shows full via Tooltip
+    const labels = fullLabels.map((name) =>
+      name.length <= 18 ? name : `${name.slice(0, 18).trimEnd()}…`
+    );
     return {
-      labels: rows.map((r) => r.label),
+      labels,
+      fullLabels,
       values: rows.map((r) => r.value),
     };
   }, [studentStats]);
 
   const lineData = useMemo(() => {
-    const rows = studentStats?.byAcademicYear || [];
+    const rows = [...(studentStats?.byAcademicYear || [])].sort((a, b) => {
+      if (a.label === "Unassigned") return 1;
+      if (b.label === "Unassigned") return -1;
+      const yearA = Number(String(a.label).match(/(19|20)\d{2}/)?.[0] || 9999);
+      const yearB = Number(String(b.label).match(/(19|20)\d{2}/)?.[0] || 9999);
+      if (yearA !== yearB) return yearB - yearA;
+      return a.label.localeCompare(b.label);
+    });
     return {
       labels: rows.map((r) => r.label),
       values: rows.map((r) => r.value),
@@ -76,12 +89,11 @@ export default function DashboardPage() {
 
   const overviewBars = useMemo(
     () => ({
-      labels: ["Students", "Admissions", "Employees", "Attendance"],
+      labels: ["Students", "Admissions", "Employees"],
       values: [
         stats?.totalStudents || 0,
         stats?.totalAdmissions || 0,
         stats?.totalEmployees || 0,
-        stats?.totalAttendances || 0,
       ],
     }),
     [stats]
@@ -173,7 +185,7 @@ export default function DashboardPage() {
                 color="text.secondary"
                 sx={{ display: "block", mb: 1.5 }}
               >
-                Students, admissions, employees & attendance
+                Students, admissions & employees
               </Typography>
               <BarChart
                 height={280}
@@ -231,7 +243,7 @@ export default function DashboardPage() {
                 color="text.secondary"
                 sx={{ display: "block", mb: 1.5 }}
               >
-                Line trend across years
+                Year-wise student count (current → older)
               </Typography>
               {lineData.labels.length === 0 ? (
                 <Box height={280} display="flex" alignItems="center" justifyContent="center">
@@ -304,36 +316,101 @@ export default function DashboardPage() {
                   <Typography color="text.secondary">No course data yet</Typography>
                 </Box>
               ) : (
-                <BarChart
-                  height={440}
-                  layout="horizontal"
-                  margin={{ left: 100, right: 16, top: 16, bottom: 30 }}
-                  series={[
-                    {
-                      data: barData.values,
-                      label: "Students",
-                      color: "#C45C3A",
-                    },
-                  ]}
-                  yAxis={[
-                    {
-                      data: barData.labels,
-                      scaleType: "band",
-                      tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" },
-                    },
-                  ]}
-                  xAxis={[{ tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } }]}
-                  slotProps={{
-                    legend: { hidden: true },
-                  }}
-                  borderRadius={4}
-                  grid={{ vertical: true }}
-                  sx={{
-                    "& .MuiChartsAxis-line": { stroke: "rgba(11,44,52,0.12)" },
-                    "& .MuiChartsAxis-tick": { stroke: "rgba(11,44,52,0.12)" },
-                    "& .MuiChartsGrid-line": { stroke: "rgba(11,44,52,0.06)" },
-                  }}
-                />
+                <Box sx={{ display: "flex", alignItems: "stretch", minHeight: 440 }}>
+                  <Box
+                    sx={{
+                      width: 100,
+                      flexShrink: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-around",
+                      py: "16px",
+                      pb: "30px",
+                      pr: 0.5,
+                    }}
+                  >
+                    {barData.fullLabels.map((full, index) => (
+                      <Tooltip key={`${full}-${index}`} title={full} placement="right" arrow>
+                        <Typography
+                          noWrap
+                          sx={{
+                            fontSize: 11,
+                            fontFamily: '"Josefin Sans", sans-serif',
+                            fontWeight: 500,
+                            color: "text.primary",
+                            textAlign: "right",
+                            lineHeight: 1.2,
+                            cursor: "default",
+                            maxWidth: "100%",
+                          }}
+                        >
+                          {barData.labels[index]}
+                        </Typography>
+                      </Tooltip>
+                    ))}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <BarChart
+                      height={440}
+                      layout="horizontal"
+                      margin={{ left: 8, right: 16, top: 16, bottom: 30 }}
+                      series={[
+                        {
+                          data: barData.values,
+                          label: "Students",
+                          color: "#C45C3A",
+                          valueFormatter: (value) => formatNumber(value || 0),
+                        },
+                      ]}
+                      yAxis={[
+                        {
+                          // Full names here so bar-hover tooltip shows complete course title
+                          data: barData.fullLabels,
+                          scaleType: "band",
+                          tickLabelStyle: { fontSize: 0 },
+                          disableLine: true,
+                          disableTicks: true,
+                          valueFormatter: (v) => String(v ?? ""),
+                        },
+                      ]}
+                      xAxis={[
+                        { tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } },
+                      ]}
+                      slotProps={{
+                        legend: { hidden: true },
+                        popper: {
+                          sx: {
+                            "& .MuiChartsTooltip-paper": {
+                              maxWidth: 480,
+                              width: "max-content",
+                            },
+                            "& .MuiChartsTooltip-table": {
+                              maxWidth: 480,
+                            },
+                            "& .MuiChartsTooltip-cell, & .MuiChartsTooltip-labelCell, & .MuiChartsTooltip-valueCell":
+                              {
+                                whiteSpace: "normal",
+                                wordBreak: "break-word",
+                                maxWidth: 420,
+                                fontFamily: '"Josefin Sans", sans-serif',
+                                fontSize: 12,
+                              },
+                          },
+                        },
+                      }}
+                      borderRadius={4}
+                      grid={{ vertical: true }}
+                      sx={{
+                        "& .MuiChartsAxis-line": { stroke: "rgba(11,44,52,0.12)" },
+                        "& .MuiChartsAxis-tick": { stroke: "rgba(11,44,52,0.12)" },
+                        "& .MuiChartsGrid-line": { stroke: "rgba(11,44,52,0.06)" },
+                        "& .MuiChartsAxis-left .MuiChartsAxis-tickLabel": {
+                          display: "none",
+                        },
+                      }}
+                    />
+                  </Box>
+                </Box>
               )}
             </Paper>
           </Grid>

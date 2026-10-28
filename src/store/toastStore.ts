@@ -22,6 +22,15 @@ export const useToastStore = create<ToastState>((set) => ({
 
 /** Prefer: toastError(err, "Could not load …") — never shows raw 500 text. */
 export function toastError(errOrMessage: unknown, fallback?: string) {
+  // 401 already forces logout + login-page message — don't flash a toast
+  if (
+    errOrMessage &&
+    typeof errOrMessage === "object" &&
+    "response" in errOrMessage &&
+    (errOrMessage as { response?: { status?: number } }).response?.status === 401
+  ) {
+    return;
+  }
   const message = getFriendlyErrorMessage(
     typeof errOrMessage === "string" ? { message: errOrMessage } : errOrMessage,
     fallback || "Something went wrong. Please try again in a moment."

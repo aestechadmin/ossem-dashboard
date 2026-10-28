@@ -1,5 +1,8 @@
 import { Box, Typography } from "@mui/material";
 import type { ReactNode } from "react";
+import DevicesRoundedIcon from "@mui/icons-material/DevicesRounded";
+import AccountBalanceRoundedIcon from "@mui/icons-material/AccountBalanceRounded";
+import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
 import OssemLogo from "@/components/OssemLogo";
 
 type AuthShellProps = {
@@ -7,6 +10,12 @@ type AuthShellProps = {
   title: string;
   subtitle?: string;
 };
+
+const TRUST_CHIPS = [
+  { label: "One device", icon: DevicesRoundedIcon, accent: "#C45C3A" },
+  { label: "Branch aware", icon: AccountBalanceRoundedIcon, accent: "#1A7A6D" },
+  { label: "Operator clear", icon: InsightsRoundedIcon, accent: "#3A6B85" },
+] as const;
 
 export default function AuthShell({ children, title, subtitle }: AuthShellProps) {
   return (
@@ -74,7 +83,7 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
               fontWeight: 600,
               letterSpacing: "-0.02em",
               lineHeight: 1.1,
-              maxWidth: 460,
+              maxWidth: 620,
               mb: 2.5,
             }}
           >
@@ -87,12 +96,159 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
               fontWeight: 400,
               lineHeight: 1.75,
               color: "rgba(247,250,251,0.62)",
-              maxWidth: 400,
+              maxWidth: 500,
+              mb: 3,
             }}
           >
             Sign in to review academics, admissions, departments, and fee totals — with a session
             locked to one device.
           </Typography>
+
+          <Box
+            sx={{
+              maxWidth: 440,
+              p: 1.75,
+              borderRadius: 3,
+              position: "relative",
+              overflow: "hidden",
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 55%, rgba(196,92,58,0.08) 100%)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              boxShadow: "0 18px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+              backdropFilter: "blur(14px)",
+              "&::after": {
+                content: '""',
+                position: "absolute",
+                width: 140,
+                height: 140,
+                right: -40,
+                top: -50,
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(196,92,58,0.28), transparent 70%)",
+                pointerEvents: "none",
+              },
+            }}
+          >
+            <Box
+              sx={{
+                position: "relative",
+                zIndex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 1.5,
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "rgba(247,250,251,0.92)",
+                }}
+              >
+                Admin Portal
+              </Typography>
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.7,
+                  px: 1.1,
+                  py: 0.45,
+                  borderRadius: 999,
+                  bgcolor: "rgba(26,122,109,0.22)",
+                  border: "1px solid rgba(26,122,109,0.4)",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    bgcolor: "#1A7A6D",
+                    boxShadow: "0 0 8px rgba(26,122,109,0.8)",
+                    animation: "softPulse 2.2s ease-in-out infinite",
+                  }}
+                />
+                <Typography
+                  sx={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(247,250,251,0.85)",
+                  }}
+                >
+                  Secure
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box
+              sx={{
+                position: "relative",
+                zIndex: 1,
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 0.85,
+              }}
+            >
+              {TRUST_CHIPS.map((item, index) => {
+                const Icon = item.icon;
+                return (
+                  <Box
+                    key={item.label}
+                    sx={{
+                      px: 1,
+                      py: 1.25,
+                      borderRadius: 2,
+                      textAlign: "center",
+                      bgcolor: "rgba(6,19,23,0.4)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      animation: "fadeUp 0.4s ease both",
+                      animationDelay: `${0.06 * index}s`,
+                      transition: "transform 0.2s ease, border-color 0.2s ease",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        borderColor: `${item.accent}88`,
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 30,
+                        height: 30,
+                        mx: "auto",
+                        mb: 0.85,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: `${item.accent}24`,
+                        color: item.accent,
+                        border: `1px solid ${item.accent}55`,
+                      }}
+                    >
+                      <Icon sx={{ fontSize: 15 }} />
+                    </Box>
+                    <Typography
+                      sx={{
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        letterSpacing: "0.02em",
+                        color: "rgba(247,250,251,0.9)",
+                        lineHeight: 1.25,
+                      }}
+                    >
+                      {item.label}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
         </Box>
 
         <Box
@@ -131,9 +287,10 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
             "radial-gradient(ellipse at top right, rgba(26,122,109,0.07), transparent 45%)",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: 400, animation: "fadeUp 0.45s ease both" }}>
+        <Box sx={{ width: "100%", maxWidth: 420, animation: "fadeUp 0.45s ease both" }}>
           <Typography
             sx={{
+              textAlign: "center",
               fontSize: { xs: 30, sm: 36 },
               fontWeight: 600,
               letterSpacing: "-0.02em",
@@ -147,6 +304,7 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
           {subtitle ? (
             <Typography
               sx={{
+                textAlign: "center",
                 fontSize: 14,
                 color: "#5A6A72",
                 lineHeight: 1.7,

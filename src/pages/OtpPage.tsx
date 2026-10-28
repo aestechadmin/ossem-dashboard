@@ -13,6 +13,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { loginWithPassword, loginWithPhone, verifyOtp } from "@/api/auth";
 import { completeAdminLogin } from "@/api/completeLogin";
+import AuthHelp from "@/components/AuthHelp";
 import AuthShell from "@/components/AuthShell";
 import { useAuthStore } from "@/store/authStore";
 import { isJwtExpired } from "@/utils/jwt";
@@ -34,6 +35,7 @@ export default function OtpPage() {
   const [error, setError] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(60);
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
+  const submittingRef = useRef(false);
 
   const code = useMemo(() => digits.join(""), [digits]);
 
@@ -42,6 +44,46 @@ export default function OtpPage() {
     const timer = window.setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [secondsLeft]);
+
+  async function submitOtp(otpCode: string) {
+    if (otpCode.length < 6 || submittingRef.current) return;
+    submittingRef.current = true;
+    setError("");
+    setLoading(true);
+    try {
+      const token = useAuthStore.getState().otpToken;
+      if (!token) {
+        setError("Session expired. Please sign in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      const data = await verifyOtp(token, otpCode);
+      if (!data?.jwt) {
+        setError("OTP verified but login token was missing. Try again.");
+        return;
+      }
+      await completeAdminLogin(data);
+      navigate("/", { replace: true });
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          "Invalid or expired OTP"
+      );
+    } finally {
+      setLoading(false);
+      submittingRef.current = false;
+    }
+  }
+
+  // Auto-submit when all 6 digits are filled (typing or paste)
+  useEffect(() => {
+    if (code.length === 6 && otpToken && !loading) {
+      void submitOtp(code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when code becomes complete
+  }, [code]);
 
   // Only leave OTP after full login (JWT + admin session). Mid-claim JWT alone must stay here.
   if (jwt && adminSessionId && !isJwtExpired(jwt)) {
@@ -78,26 +120,7 @@ export default function OtpPage() {
       setError("Enter the 6-digit OTP");
       return;
     }
-    setError("");
-    setLoading(true);
-    try {
-      const data = await verifyOtp(otpToken!, code);
-      if (!data?.jwt) {
-        setError("OTP verified but login token was missing. Try again.");
-        return;
-      }
-      await completeAdminLogin(data);
-      navigate("/", { replace: true });
-    } catch (err: any) {
-      setError(
-        err?.message ||
-          err?.response?.data?.error?.message ||
-          err?.response?.data?.message ||
-          "Invalid or expired OTP"
-      );
-    } finally {
-      setLoading(false);
-    }
+    await submitOtp(code);
   }
 
   async function handleResend() {
@@ -253,6 +276,8 @@ export default function OtpPage() {
           {resending ? "Sending…" : "Resend OTP"}
         </Button>
       </Box>
+
+      <AuthHelp />
     </AuthShell>
   );
 }

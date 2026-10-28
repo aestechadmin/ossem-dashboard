@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import AdminLayout from "@/layouts/AdminLayout";
 import AccountCategoriesPage from "@/pages/AccountCategoriesPage";
 import AdmissionsPage from "@/pages/AdmissionsPage";
@@ -17,19 +23,42 @@ import LoginPage from "@/pages/LoginPage";
 import OtpPage from "@/pages/OtpPage";
 import StudentsPage from "@/pages/StudentsPage";
 import ToastHost from "@/components/ToastHost";
+import { checkAdminPortalSession } from "@/api/session";
 import { useAuthStore } from "@/store/authStore";
 import { isJwtExpired } from "@/utils/jwt";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const jwt = useAuthStore((s) => s.jwt);
   const adminSessionId = useAuthStore((s) => s.adminSessionId);
   const logout = useAuthStore((s) => s.logout);
+  const location = useLocation();
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (jwt && isJwtExpired(jwt)) {
-      logout();
+      logout("auth_error", "Your session has expired. Please sign in again.");
+      window.location.replace("/login");
     }
-  }, [jwt, logout]);
+  }, [hasHydrated, jwt, logout]);
+
+  // Every menu / page change — validate session (no full reload needed)
+  useEffect(() => {
+    if (!hasHydrated || !jwt || !adminSessionId || isJwtExpired(jwt)) return;
+    let active = true;
+    checkAdminPortalSession().catch(() => {
+      // 401 interceptor clears auth + replaces to /login
+      if (!active) return;
+    });
+    return () => {
+      active = false;
+    };
+  }, [hasHydrated, jwt, adminSessionId, location.pathname]);
+
+  // Before hydrate finishes, don't flash protected UI — send to login shell
+  if (!hasHydrated) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (!jwt || isJwtExpired(jwt) || !adminSessionId) {
     return <Navigate to="/login" replace />;
@@ -38,14 +67,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const jwt = useAuthStore((s) => s.jwt);
   const logout = useAuthStore((s) => s.logout);
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (jwt && isJwtExpired(jwt)) {
-      logout();
+      logout("auth_error", "Your session has expired. Please sign in again.");
     }
-  }, [jwt, logout]);
+  }, [hasHydrated, jwt, logout]);
 
   return (
     <BrowserRouter>

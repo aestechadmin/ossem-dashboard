@@ -216,7 +216,8 @@ export default function AdminLayout() {
           setBranches(items);
           const current = useAuthStore.getState().selectedBranchId;
           const stillValid = current != null && items.some((b) => b.id === current);
-          if (!stillValid) setSelectedBranch(items[0].id);
+          // Initial / invalid → first institution in the list
+          setSelectedBranch(stillValid ? current! : items[0].id);
         } else if (useAuthStore.getState().branches.length === 0) {
           toastError(null, "No institutions found.");
         }
@@ -250,9 +251,12 @@ export default function AdminLayout() {
   }, [branches, selectedBranchId, setSelectedBranch]);
 
   function renderInstitutionSelect() {
+    const fallbackId = branches.length > 0 ? branches[0].id : null;
     const selectValue =
       effectiveBranchId === "" || effectiveBranchId == null
-        ? ""
+        ? fallbackId != null
+          ? String(fallbackId)
+          : ""
         : String(effectiveBranchId);
 
     return (
@@ -274,7 +278,6 @@ export default function AdminLayout() {
           label="Institution"
           value={selectValue}
           disabled={branchesLoading && branches.length === 0}
-          displayEmpty
           onChange={(e) => {
             const id = Number(e.target.value);
             if (Number.isFinite(id) && id > 0) setSelectedBranch(id);

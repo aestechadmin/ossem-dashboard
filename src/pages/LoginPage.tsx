@@ -17,6 +17,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { loginWithPassword, loginWithPhone } from "@/api/auth";
 import { completeAdminLogin } from "@/api/completeLogin";
+import AuthHelp from "@/components/AuthHelp";
 import AuthShell from "@/components/AuthShell";
 import {
   AUTH_ERROR_STORAGE_KEY,
@@ -35,7 +36,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const jwt = useAuthStore((s) => s.jwt);
   const adminSessionId = useAuthStore((s) => s.adminSessionId);
-  const logout = useAuthStore((s) => s.logout);
+  const clearOtpPending = useAuthStore((s) => s.clearOtpPending);
   const setOtpPending = useAuthStore((s) => s.setOtpPending);
 
   const [channel, setChannel] = useState<Channel>("phone");
@@ -46,10 +47,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
+
+  // After persist rehydrate only — do NOT depend on jwt (claim-session briefly
+  // sets JWT without adminSessionId; a jwt-deps effect would abort login).
   useEffect(() => {
-    // Drop half-finished login (JWT without admin session) so OTP claim cannot race
-    if (jwt && !adminSessionId) {
-      logout();
+    if (!hasHydrated) return;
+    const state = useAuthStore.getState();
+    if (state.jwt && !state.adminSessionId) {
+      state.logout();
     }
     if (sessionStorage.getItem(SESSION_REVOKED_STORAGE_KEY)) {
       sessionStorage.removeItem(SESSION_REVOKED_STORAGE_KEY);
@@ -60,9 +66,10 @@ export default function LoginPage() {
       sessionStorage.removeItem(AUTH_ERROR_STORAGE_KEY);
       setError(authError);
     }
-  }, [jwt, adminSessionId, logout]);
+  }, [hasHydrated]);
 
-  if (jwt && adminSessionId && !isJwtExpired(jwt)) {
+  // Never blank the login screen while waiting on hydrate — only gate the redirect
+  if (hasHydrated && jwt && adminSessionId && !isJwtExpired(jwt)) {
     return <Navigate to="/" replace />;
   }
 
@@ -78,7 +85,14 @@ export default function LoginPage() {
   }
 
   async function handleLogin() {
-    logout();
+    // Clear OTP draft + any leftover JWT so /auth/local is a clean request.
+    // Do not use logout() here — that races with claim-session after password login.
+    clearOtpPending();
+    useAuthStore.setState({
+      jwt: null,
+      user: null,
+      adminSessionId: null,
+    });
 
     if (channel === "phone") {
       const phone = digitsOnly(mobile);
@@ -122,13 +136,15 @@ export default function LoginPage() {
     try {
       await handleLogin();
     } catch (err: any) {
-      setError(
-        err?.message ||
-          err?.response?.data?.error?.message ||
-          err?.response?.data?.message?.[0]?.messages?.[0]?.message ||
-          err?.response?.data?.message ||
-          "Login failed"
-      );
+      const apiMessage =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message?.[0]?.messages?.[0]?.message ||
+        (typeof err?.response?.data?.message === "string"
+          ? err.response.data.message
+          : null);
+      setError(apiMessage || err?.message || "Login failed");
+      // Keep Network tab easy to debug
+      console.warn("[login]", err?.response?.status, err?.response?.data || err);
     } finally {
       setLoading(false);
     }
@@ -139,6 +155,19 @@ export default function LoginPage() {
       title="Welcome back"
       subtitle="Choose phone or email to continue into the management console."
     >
+      <Typography
+        sx={{
+          textAlign: "center",
+          fontSize: 20,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          color: "#0B2C34",
+          mb: 2,
+          lineHeight: 1.2,
+        }}
+      >
+        Sign up
+      </Typography>
       <Box
         sx={{
           display: "grid",
@@ -276,6 +305,8 @@ export default function LoginPage() {
           )}
         </Button>
       </Box>
+
+      <AuthHelp />
     </AuthShell>
   );
 }

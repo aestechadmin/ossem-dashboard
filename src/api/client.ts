@@ -31,11 +31,15 @@ function requestUrl(error: unknown): string {
 }
 
 api.interceptors.request.use((config) => {
+  const url = `${config.baseURL || ""}${config.url || ""}`;
+  // Login / OTP must not send a leftover Bearer — Strapi can return
+  // "Invalid credentials" when an expired/old JWT is attached.
+  const isAuthLocal = /\/auth\/local/i.test(url);
   const { jwt, adminSessionId } = useAuthStore.getState();
-  if (jwt) {
+  if (jwt && !isAuthLocal) {
     config.headers.Authorization = `Bearer ${jwt}`;
   }
-  if (adminSessionId) {
+  if (adminSessionId && !isAuthLocal) {
     config.headers["X-Admin-Session"] = adminSessionId;
   }
   return config;
@@ -55,13 +59,20 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // Only force logout when another device took the session
+      // Any 401 while using the app means the session/JWT is dead.
+      // Users don't reload — they open another menu/page, API 401s, and used
+      // to stay stuck on the dashboard shell. Always clear auth + leave now.
       if (isSessionRevoked401(error)) {
         useAuthStore.getState().logout("session_revoked");
-      } else if (!/\/admin-portal\//i.test(url)) {
-        useAuthStore.getState().logout();
+      } else {
+        useAuthStore.getState().logout(
+          "auth_error",
+          "Your session has expired. Please sign in again."
+        );
       }
-      // admin-portal non-revoked 401: let the page show an error, keep JWT
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.replace("/login");
+      }
     }
     return Promise.reject(error);
   }

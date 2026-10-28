@@ -50,6 +50,10 @@ export function getFriendlyErrorMessage(err: unknown, fallback = GENERIC): strin
     if (apiMessage === "SESSION_REVOKED") {
       return "You were signed out because this account was used on another device.";
     }
+    // Strapi default for bad/expired JWT — never show raw text to users
+    if (/invalid credentials/i.test(apiMessage)) {
+      return STATUS_MESSAGES[401];
+    }
     return apiMessage;
   }
 

@@ -22,6 +22,7 @@ export const SESSION_REVOKED_STORAGE_KEY = "ossem-admin-session-revoked";
 export const AUTH_ERROR_STORAGE_KEY = "ossem-admin-auth-error";
 
 type AuthState = {
+  hasHydrated: boolean;
   jwt: string | null;
   user: AuthUser | null;
   adminSessionId: string | null;
@@ -31,6 +32,7 @@ type AuthState = {
   loginIdentifier: string | null;
   loginPassword: string | null;
   authChannel: AuthChannel | null;
+  setHasHydrated: (value: boolean) => void;
   setOtpPending: (
     token: string,
     identifier: string,
@@ -55,6 +57,7 @@ type AuthState = {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
+      hasHydrated: false,
       jwt: null,
       user: null,
       adminSessionId: null,
@@ -64,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
       loginIdentifier: null,
       loginPassword: null,
       authChannel: null,
+      setHasHydrated: (value) => set({ hasHydrated: value }),
       setOtpPending: (token, identifier, channel, password = null) =>
         set({
           otpToken: token,
@@ -74,8 +78,12 @@ export const useAuthStore = create<AuthState>()(
       setJwtForClaim: (jwt, user) => set({ jwt, user }),
       finishLogin: (jwt, user, sessionId, branches = [], branchId = null) => {
         const list = branches || [];
-        const defaultId =
-          branchId ?? (list.length > 0 ? list[0].id : null);
+        // Prefer first branch in list; fall back to API branchId only if list empty of match
+        const inList =
+          branchId != null && list.some((b) => b.id === branchId)
+            ? branchId
+            : null;
+        const defaultId = list.length > 0 ? list[0].id : inList;
         set({
           jwt,
           user,
@@ -97,6 +105,7 @@ export const useAuthStore = create<AuthState>()(
             list.some((b) => b.id === state.selectedBranchId);
           return {
             branches: list,
+            // Always keep a real selection — default to first row
             selectedBranchId: stillValid
               ? state.selectedBranchId
               : list.length > 0
@@ -144,19 +153,30 @@ export const useAuthStore = create<AuthState>()(
         branches: state.branches,
         selectedBranchId: state.selectedBranchId,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.jwt && isJwtExpired(state.jwt)) {
+      onRehydrateStorage: () => (state, _error) => {
+        // JWT without admin session = half login — never keep it
+        if (state?.jwt && (!state.adminSessionId || isJwtExpired(state.jwt))) {
           useAuthStore.getState().logout();
-        }
-        // Always default to first branch if none selected
-        if (
+        } else if (
           state?.branches?.length &&
           (state.selectedBranchId == null ||
             !state.branches.some((b) => b.id === state.selectedBranchId))
         ) {
+          // Always default to first branch if none selected
           useAuthStore.getState().setSelectedBranch(state.branches[0].id);
         }
       },
     }
   )
 );
+
+// Reliable hydrate flag — onRehydrateStorage alone can miss after HMR / sync storage
+function markAuthHydrated() {
+  useAuthStore.getState().setHasHydrated(true);
+}
+if (typeof window !== "undefined") {
+  useAuthStore.persist.onFinishHydration(markAuthHydrated);
+  if (useAuthStore.persist.hasHydrated()) {
+    markAuthHydrated();
+  }
+}
