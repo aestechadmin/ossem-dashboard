@@ -31,12 +31,25 @@ export function getCascadedOptions(
     ? (all.classrooms || []).filter((item) => !item.courseId || item.courseId === courseId)
     : all.classrooms || [];
 
+  const quotas: FilterOption[] = courseId
+    ? (all.quotas || []).filter((item) => !item.courseId || item.courseId === courseId)
+    : (() => {
+        const seen = new Set<string>();
+        return (all.quotas || []).filter((item) => {
+          const key = String(item.id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      })();
+
   return {
     courses: all.courses,
     specializations,
     academicYears,
     courseYears,
     classrooms,
+    quotas,
   };
 }
 
@@ -107,19 +120,20 @@ export function pruneAdmissionFilters(
 export function pruneFeeFilters(
   all: PortalFilters,
   next: {
-    paid: "" | "true" | "false";
     course: string;
     specialization: string;
     academicYear: string;
+    courseYear: string;
+    quota: string;
   }
 ) {
-  const pruned = pruneAdmissionFilters(all, next);
-  return {
-    paid: next.paid,
-    course: pruned.course,
-    specialization: pruned.specialization,
-    academicYear: pruned.academicYear,
-  };
+  const pruned = pruneStudentFilters(all, next);
+  const cascaded = getCascadedOptions(all, pruned);
+  let quota = next.quota;
+  if (quota && !cascaded.quotas.some((item) => String(item.id) === quota)) {
+    quota = "";
+  }
+  return { ...pruned, quota };
 }
 
 export function pruneAttendanceFilters(

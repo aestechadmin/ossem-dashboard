@@ -8,7 +8,7 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
 import ManRoundedIcon from "@mui/icons-material/ManRounded";
 import WomanRoundedIcon from "@mui/icons-material/WomanRounded";
-import { BarChart } from "@mui/x-charts/BarChart";
+import { LineChart } from "@mui/x-charts/LineChart";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchHostelOverview, type HostelOverviewStats } from "@/api/adminPortal";
@@ -222,27 +222,30 @@ export default function HostelPage() {
             >
               Rooms and hostel students (Total / Mens / Women) for the selected branch
             </Typography>
-            <BarChart
-              height={300}
+            <LineChart
+              height={280}
               series={[
                 {
                   data: hostelChart.values,
                   label: "Count",
-                  color: "#C45C3A",
+                  color: "#1A7A6D",
+                  area: true,
+                  curve: "monotoneX",
+                  showMark: true,
                 },
               ]}
               xAxis={[
                 {
                   data: hostelChart.labels,
-                  scaleType: "band",
+                  scaleType: "point",
                   tickLabelStyle: { fontSize: 10, fontFamily: "Josefin Sans" },
                 },
               ]}
               yAxis={[{ tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } }]}
               slotProps={{ legend: { hidden: true } }}
-              borderRadius={4}
               grid={{ horizontal: true }}
               sx={{
+                "& .MuiAreaElement-root": { fillOpacity: 0.18 },
                 "& .MuiChartsAxis-line": { stroke: "rgba(11,44,52,0.12)" },
                 "& .MuiChartsAxis-tick": { stroke: "rgba(11,44,52,0.12)" },
                 "& .MuiChartsGrid-line": { stroke: "rgba(11,44,52,0.06)" },

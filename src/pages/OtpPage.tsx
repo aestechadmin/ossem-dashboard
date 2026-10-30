@@ -6,12 +6,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import MarkEmailReadRoundedIcon from "@mui/icons-material/MarkEmailReadRounded";
 import SmsRoundedIcon from "@mui/icons-material/SmsRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { loginWithPassword, loginWithPhone, verifyOtp } from "@/api/auth";
+import { loginWithPhone, verifyOtp } from "@/api/auth";
 import { completeAdminLogin } from "@/api/completeLogin";
 import AuthHelp from "@/components/AuthHelp";
 import AuthShell from "@/components/AuthShell";
@@ -24,8 +23,6 @@ export default function OtpPage() {
   const adminSessionId = useAuthStore((s) => s.adminSessionId);
   const otpToken = useAuthStore((s) => s.otpToken);
   const loginIdentifier = useAuthStore((s) => s.loginIdentifier);
-  const loginPassword = useAuthStore((s) => s.loginPassword);
-  const authChannel = useAuthStore((s) => s.authChannel);
   const setOtpPending = useAuthStore((s) => s.setOtpPending);
   const clearOtpPending = useAuthStore((s) => s.clearOtpPending);
 
@@ -124,26 +121,12 @@ export default function OtpPage() {
   }
 
   async function handleResend() {
-    if (!loginIdentifier || !authChannel || secondsLeft > 0) return;
+    if (!loginIdentifier || secondsLeft > 0) return;
     setResending(true);
     setError("");
     try {
-      if (authChannel === "phone") {
-        const data = await loginWithPhone(loginIdentifier);
-        setOtpPending(data.token, loginIdentifier, "phone");
-      } else if (loginPassword) {
-        const data = await loginWithPassword(loginIdentifier, loginPassword);
-        if ("token" in data && data.token) {
-          setOtpPending(data.token, loginIdentifier, "email", loginPassword);
-        } else {
-          setError("Could not resend OTP");
-          return;
-        }
-      } else {
-        setError("Return to Sign in and continue with email to resend OTP");
-        navigate("/login");
-        return;
-      }
+      const data = await loginWithPhone(loginIdentifier);
+      setOtpPending(data.token, loginIdentifier, "phone");
       setDigits(["", "", "", "", "", ""]);
       setSecondsLeft(60);
       inputsRef.current[0]?.focus();
@@ -155,7 +138,7 @@ export default function OtpPage() {
   }
 
   return (
-    <AuthShell title="Check your inbox" subtitle="Enter the six-digit code to verify your session.">
+    <AuthShell title="Check your phone" subtitle="Enter the six-digit code to verify your session.">
       <Button
         startIcon={<ArrowBackRoundedIcon />}
         onClick={() => {
@@ -197,14 +180,14 @@ export default function OtpPage() {
             color: "#fff",
           }}
         >
-          {authChannel === "email" ? <MarkEmailReadRoundedIcon fontSize="small" /> : <SmsRoundedIcon fontSize="small" />}
+          <SmsRoundedIcon fontSize="small" />
         </Box>
         <Box minWidth={0}>
           <Typography sx={{ fontSize: 11, fontWeight: 500, color: "#5C6B73", letterSpacing: "0.04em" }}>
             SENT TO
           </Typography>
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>
-            {loginIdentifier}
+            {loginIdentifier ? `+91 ${loginIdentifier}` : "—"}
           </Typography>
         </Box>
       </Box>

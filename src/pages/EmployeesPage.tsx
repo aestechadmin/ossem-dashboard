@@ -2,7 +2,7 @@ import { Box, CircularProgress, Grid } from "@mui/material";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchEmployees, type EmployeeItem } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
@@ -14,12 +14,16 @@ const OTHER_ACCENTS = ["#C45C26", "#6B4E71", "#2F6F6A", "#8B5E3C", "#4A6FA5", "#
 
 export default function EmployeesPage() {
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const scrollAfterLoadRef = useRef(false);
   const [items, setItems] = useState<EmployeeItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
   const [adminCount, setAdminCount] = useState(0);
-  const [otherCategories, setOtherCategories] = useState<Array<{ label: string; value: number }>>(
-    []
-  );
+  const [otherCategories, setOtherCategories] = useState<
+    Array<{ label: string; value: number; type: string }>
+  >([]);
+  const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSizeOption>(50);
   const [pageCount, setPageCount] = useState(1);
@@ -27,6 +31,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     setPage(1);
+    setCategory("all");
   }, [selectedBranchId]);
 
   useEffect(() => {
@@ -35,10 +40,15 @@ export default function EmployeesPage() {
     async function load() {
       setLoading(true);
       try {
-        const data = await fetchEmployees(selectedBranchId, { page, pageSize });
+        const data = await fetchEmployees(selectedBranchId, {
+          page,
+          pageSize,
+          category: category === "all" ? undefined : category,
+        });
         if (active) {
           setItems(data.items);
           setTotal(data.total);
+          setTotalAll(data.totalAll ?? data.total);
           setAdminCount(data.adminCount || 0);
           setOtherCategories(data.otherCategories || []);
           setPageCount(data.pageCount || 1);
@@ -55,7 +65,29 @@ export default function EmployeesPage() {
     return () => {
       active = false;
     };
-  }, [selectedBranchId, page, pageSize]);
+  }, [selectedBranchId, page, pageSize, category]);
+
+  useEffect(() => {
+    if (loading || !scrollAfterLoadRef.current) return;
+    scrollAfterLoadRef.current = false;
+    const node = tableRef.current;
+    if (!node) return;
+    // Wait a frame so table height is laid out after data render
+    window.requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [loading, items, category]);
+
+  function selectCategory(next: string) {
+    scrollAfterLoadRef.current = true;
+    setPage(1);
+    setCategory(next);
+    // Same category click still scrolls after current table is ready
+    if (next === category && !loading) {
+      scrollAfterLoadRef.current = false;
+      tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   const columns: Column<EmployeeItem>[] = [
     {
@@ -104,18 +136,33 @@ export default function EmployeesPage() {
     },
   ];
 
+  const selectedLabel =
+    category === "all"
+      ? "all staff"
+      : category === "admin"
+        ? "admin"
+        : otherCategories.find((c) => c.type === category)?.label || category;
+
   return (
     <Box>
-      <PageHeader subtitle="Staff list for the selected institution." />
+      <PageHeader
+        subtitle={
+          category === "all"
+            ? "Tap a card to see who is in that category."
+            : `Showing ${selectedLabel} — tap Total to see everyone again.`
+        }
+      />
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={6}>
           <StatCard
             title="Total"
-            value={total.toLocaleString("en-IN")}
+            value={totalAll.toLocaleString("en-IN")}
             subtitle="All staff in institution"
             accent="#3A6B85"
             icon={<GroupsRoundedIcon />}
+            selected={category === "all"}
+            onClick={() => selectCategory("all")}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={6}>
@@ -126,6 +173,8 @@ export default function EmployeesPage() {
             accent="#0B2C34"
             icon={<AdminPanelSettingsRoundedIcon />}
             delay={40}
+            selected={category === "admin"}
+            onClick={() => selectCategory("admin")}
           />
         </Grid>
       </Grid>
@@ -133,43 +182,47 @@ export default function EmployeesPage() {
       {otherCategories.length > 0 ? (
         <Grid container spacing={2} sx={{ mb: 2.5 }}>
           {otherCategories.map((cat, i) => (
-            <Grid item xs={12} sm={6} md={3} key={cat.label}>
+            <Grid item xs={12} sm={6} md={3} key={cat.type}>
               <StatCard
                 title={cat.label}
                 value={cat.value.toLocaleString("en-IN")}
-                subtitle="Category count"
+                subtitle="Tap to view list"
                 accent={OTHER_ACCENTS[i % OTHER_ACCENTS.length]}
                 icon={<CategoryRoundedIcon />}
                 delay={100 + i * 40}
+                selected={category === cat.type}
+                onClick={() => selectCategory(cat.type)}
               />
             </Grid>
           ))}
         </Grid>
       ) : null}
 
-      {loading ? (
-        <Box minHeight={280} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress />
-        </Box>
-      ) : (
-        <DataTableCard
-          columns={columns}
-          rows={items}
-          rowKey={(r) => r.id}
-          searchPlaceholder="Search name, emp id, category, mobile…"
-          pagination={{
-            page,
-            pageSize,
-            total,
-            pageCount,
-            onPageChange: setPage,
-            onPageSizeChange: (size) => {
-              setPageSize(size);
-              setPage(1);
-            },
-          }}
-        />
-      )}
+      <Box ref={tableRef} sx={{ scrollMarginTop: 88 }}>
+        {loading ? (
+          <Box minHeight={280} display="flex" alignItems="center" justifyContent="center">
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DataTableCard
+            columns={columns}
+            rows={items}
+            rowKey={(r) => r.id}
+            searchPlaceholder="Search name, emp id, category, mobile…"
+            pagination={{
+              page,
+              pageSize,
+              total,
+              pageCount,
+              onPageChange: setPage,
+              onPageSizeChange: (size) => {
+                setPageSize(size);
+                setPage(1);
+              },
+            }}
+          />
+        )}
+      </Box>
     </Box>
   );
 }

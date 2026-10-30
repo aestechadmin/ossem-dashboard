@@ -4,12 +4,13 @@ import type { ReactNode } from "react";
 
 type StatCardProps = {
   title: string;
-  value: string | number;
-  subtitle?: string;
+  value: ReactNode;
+  subtitle?: ReactNode;
   icon?: ReactNode;
   accent?: string;
   onClick?: () => void;
   delay?: number;
+  selected?: boolean;
 };
 
 export default function StatCard({
@@ -20,6 +21,7 @@ export default function StatCard({
   accent = "#0B2C34",
   onClick,
   delay = 0,
+  selected = false,
 }: StatCardProps) {
   const clickable = Boolean(onClick);
 
@@ -40,15 +42,19 @@ export default function StatCard({
         p: { xs: 2, sm: 2.5, xl: 3 },
         height: "100%",
         border: "1px solid",
-        borderColor: "divider",
+        borderColor: selected ? accent : "divider",
         borderRadius: 1,
-        background: "linear-gradient(160deg, #FFFFFF 0%, #F7FAFB 100%)",
+        background: selected
+          ? `linear-gradient(160deg, ${accent}10 0%, #FFFFFF 55%)`
+          : "linear-gradient(160deg, #FFFFFF 0%, #F7FAFB 100%)",
         position: "relative",
         overflow: "hidden",
         cursor: clickable ? "pointer" : "default",
         animation: `fadeUp 0.45s ease ${delay}ms both`,
         transition: "transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease",
-        boxShadow: "0 4px 18px rgba(11,44,52,0.04)",
+        boxShadow: selected
+          ? `0 8px 22px ${accent}22`
+          : "0 4px 18px rgba(11,44,52,0.04)",
         "&:hover": clickable
           ? {
               transform: "translateY(-3px)",

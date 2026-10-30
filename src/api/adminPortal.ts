@@ -38,6 +38,8 @@ export type HostelOverviewStats = {
   totalHostelStudents: number;
   mensHostelStudents: number;
   womenHostelStudents: number;
+  hostels?: Array<{ id: number; label: string }>;
+  rooms?: Array<{ id: number; label: string; hostelId?: number | null }>;
 };
 
 export type HostelStudentItem = {
@@ -62,7 +64,7 @@ export type DepartmentStats = {
 };
 
 export type FilterOption = {
-  id: number;
+  id: number | string;
   label: string;
   yearNumber?: number;
   courseId?: number | null;
@@ -76,6 +78,7 @@ export type PortalFilters = {
   academicYears: FilterOption[];
   courseYears: FilterOption[];
   classrooms: FilterOption[];
+  quotas?: FilterOption[];
 };
 
 export type PieSlice = {
@@ -117,17 +120,35 @@ export type AdmissionItem = {
   branch: string;
 };
 
+export type FeeKind = "total" | "online" | "offline" | "advance" | "demand" | "adjust";
+
+export type FeeSummaryBucket = {
+  amount: number;
+  count: number;
+};
+
+export type FeeSummary = {
+  total: FeeSummaryBucket;
+  online: FeeSummaryBucket;
+  offline: FeeSummaryBucket;
+  advance: FeeSummaryBucket;
+  demand: FeeSummaryBucket;
+  adjust: FeeSummaryBucket;
+};
+
 export type FeeItem = {
   id: number;
   studentName: string;
   rollNumber: string;
-  totalAmount: number;
+  amount: number;
   pendingAmount: number;
-  feePaid: boolean;
-  dueDate: string | null;
+  mode: string;
+  status: string;
   type: string;
   academicYear: string;
   courseYear: string;
+  date: string | null;
+  remarks?: string;
 };
 
 export type PageSizeOption = 50 | 100 | 200;
@@ -268,13 +289,19 @@ export type EmployeeItem = {
 export type EmployeesResult = PaginatedResult<EmployeeItem> & {
   adminCount: number;
   employeeCount: number;
-  otherCategories: Array<{ label: string; value: number }>;
+  totalAll?: number;
+  category?: string;
+  otherCategories: Array<{ label: string; value: number; type: string }>;
 };
 
-export async function fetchEmployees(branch?: number | null, paging?: PaginatedParams) {
+export async function fetchEmployees(
+  branch?: number | null,
+  paging?: PaginatedParams & { category?: string }
+) {
   const { data } = await api.get<EmployeesResult>("/admin-portal/employees", {
     params: {
       branch: branch || undefined,
+      category: paging?.category || undefined,
       page: paging?.page || 1,
       pageSize: paging?.pageSize || 50,
     },
@@ -311,29 +338,34 @@ export async function fetchAdmissions(
 
 export async function fetchFees(
   params: {
-    paid?: string;
+    branch?: number | null;
+    today?: boolean;
+    kind?: FeeKind;
     course?: string;
     specialization?: string;
     academicYear?: string;
-    branch?: number | null;
-    today?: boolean;
+    courseYear?: string;
+    quota?: string;
   } & PaginatedParams
 ) {
   const { data } = await api.get<
     PaginatedResult<FeeItem> & {
+      kind: FeeKind;
+      today: boolean;
+      summary: FeeSummary;
       totalAmount: number;
       pendingAmount: number;
-      todayTotal?: number;
-      todayAmount?: number;
     }
   >("/admin-portal/fees", {
     params: {
-      paid: params.paid || undefined,
+      branch: params.branch || undefined,
+      today: params.today ? "true" : undefined,
+      kind: params.kind || "total",
       course: params.course || undefined,
       specialization: params.specialization || undefined,
       academicYear: params.academicYear || undefined,
-      branch: params.branch || undefined,
-      today: params.today ? "true" : undefined,
+      courseYear: params.courseYear || undefined,
+      quota: params.quota || undefined,
       page: params.page || 1,
       pageSize: params.pageSize || 50,
     },
@@ -513,9 +545,23 @@ export async function fetchBankAccounts(branch?: number | null, paging?: Paginat
   return data;
 }
 
-export async function fetchHostelOverview(branch?: number | null) {
+export async function fetchHostelOverview(
+  branch?: number | null,
+  filters?: {
+    course?: string;
+    specialization?: string;
+    hostel?: string;
+    room?: string;
+  }
+) {
   const { data } = await api.get<HostelOverviewStats>("/admin-portal/hostel/overview", {
-    params: { branch: branch || undefined },
+    params: {
+      branch: branch || undefined,
+      course: filters?.course || undefined,
+      specialization: filters?.specialization || undefined,
+      hostel: filters?.hostel || undefined,
+      room: filters?.room || undefined,
+    },
   });
   return data;
 }
@@ -569,29 +615,41 @@ export type HostelRoomStatusFilter =
   | "PARTIAL_OCCUPIED"
   | "NOT_AVAILABLE";
 
+export type HostelListFilters = {
+  course?: string;
+  specialization?: string;
+  hostel?: string;
+  room?: string;
+};
+
 export async function fetchHostelRooms(
   branch?: number | null,
   paging?: PaginatedParams,
-  status?: HostelRoomStatusFilter
+  status?: HostelRoomStatusFilter,
+  filters?: HostelListFilters
 ) {
-  const { data } = await api.get<PaginatedResult<Record<string, string | number>>>(
-    "/admin-portal/hostel/rooms",
-    {
-      params: {
-        branch: branch || undefined,
-        page: paging?.page || 1,
-        pageSize: paging?.pageSize || 50,
-        status: status && status !== "all" ? status : undefined,
-      },
+  const { data } = await api.get<
+    PaginatedResult<Record<string, string | number>> & {
+      hostels?: Array<{ id: number; label: string }>;
     }
-  );
+  >("/admin-portal/hostel/rooms", {
+    params: {
+      branch: branch || undefined,
+      page: paging?.page || 1,
+      pageSize: paging?.pageSize || 50,
+      status: status && status !== "all" ? status : undefined,
+      hostel: filters?.hostel || undefined,
+      room: filters?.room || undefined,
+    },
+  });
   return data;
 }
 
 export async function fetchHostelStudents(
   branch?: number | null,
   paging?: PaginatedParams,
-  gender?: "all" | "mens" | "women"
+  gender?: "all" | "mens" | "women",
+  filters?: HostelListFilters
 ) {
   const { data } = await api.get<PaginatedResult<HostelStudentItem>>(
     "/admin-portal/hostel/students",
@@ -601,6 +659,10 @@ export async function fetchHostelStudents(
         page: paging?.page || 1,
         pageSize: paging?.pageSize || 50,
         gender: gender && gender !== "all" ? gender : undefined,
+        course: filters?.course || undefined,
+        specialization: filters?.specialization || undefined,
+        hostel: filters?.hostel || undefined,
+        room: filters?.room || undefined,
       },
     }
   );

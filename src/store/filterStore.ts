@@ -15,10 +15,11 @@ type AdmissionFilters = {
 };
 
 type FeeFilters = {
-  paid: "" | "true" | "false";
   course: string;
   specialization: string;
   academicYear: string;
+  courseYear: string;
+  quota: string;
 };
 
 type AttendanceFilters = {
@@ -61,10 +62,11 @@ const emptyAdmissions: AdmissionFilters = {
 };
 
 const emptyFees: FeeFilters = {
-  paid: "",
   course: "",
   specialization: "",
   academicYear: "",
+  courseYear: "",
+  quota: "",
 };
 
 const emptyAttendance: AttendanceFilters = {

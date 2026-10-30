@@ -3,20 +3,27 @@ import {
   Chip,
   CircularProgress,
   FormControl,
+  FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
   Paper,
   Select,
+  Switch,
 } from "@mui/material";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
-import TodayRoundedIcon from "@mui/icons-material/TodayRounded";
-import { useEffect, useMemo, useState } from "react";
+import SavingsRoundedIcon from "@mui/icons-material/SavingsRounded";
+import RequestQuoteRoundedIcon from "@mui/icons-material/RequestQuoteRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import CurrencyRupeeRoundedIcon from "@mui/icons-material/CurrencyRupeeRounded";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   fetchFees,
   fetchFilters,
   type FeeItem,
+  type FeeKind,
+  type FeeSummary,
   type PortalFilters,
 } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
@@ -27,12 +34,22 @@ import { useFilterStore } from "@/store/filterStore";
 import { toastError } from "@/store/toastStore";
 import { getCascadedOptions, pruneFeeFilters } from "@/utils/cascadeFilters";
 
-const emptyFilters: PortalFilters = {
+const emptyOptions: PortalFilters = {
   courses: [],
   specializations: [],
   academicYears: [],
   courseYears: [],
   classrooms: [],
+  quotas: [],
+};
+
+const emptySummary: FeeSummary = {
+  total: { amount: 0, count: 0 },
+  online: { amount: 0, count: 0 },
+  offline: { amount: 0, count: 0 },
+  advance: { amount: 0, count: 0 },
+  demand: { amount: 0, count: 0 },
+  adjust: { amount: 0, count: 0 },
 };
 
 function formatCurrency(value: number) {
@@ -43,18 +60,82 @@ function formatCurrency(value: number) {
   }).format(value || 0);
 }
 
+/** Compact Indian amount for cards — e.g. ₹1.25 Cr, ₹45.5 L */
+function formatCompactCurrency(value: number) {
+  const amount = Number(value) || 0;
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+
+  if (abs >= 1_00_00_000) {
+    const cr = abs / 1_00_00_000;
+    return `${sign}₹${cr.toLocaleString("en-IN", {
+      maximumFractionDigits: cr >= 10 ? 1 : 2,
+      minimumFractionDigits: 0,
+    })} Cr`;
+  }
+  if (abs >= 1_00_000) {
+    const lakh = abs / 1_00_000;
+    return `${sign}₹${lakh.toLocaleString("en-IN", {
+      maximumFractionDigits: lakh >= 10 ? 1 : 2,
+      minimumFractionDigits: 0,
+    })} L`;
+  }
+  return formatCurrency(amount);
+}
+
+const KIND_META: Record<
+  FeeKind,
+  { title: string; accent: string; icon: ReactNode; subtitle: string }
+> = {
+  total: {
+    title: "Total Fee",
+    accent: "#0B2C34",
+    icon: <CurrencyRupeeRoundedIcon />,
+    subtitle: "Online + offline collected",
+  },
+  online: {
+    title: "Online Fee",
+    accent: "#1A7A6D",
+    icon: <PaymentsRoundedIcon />,
+    subtitle: "Online paid collections",
+  },
+  offline: {
+    title: "Offline Fee",
+    accent: "#3A6B85",
+    icon: <AccountBalanceWalletRoundedIcon />,
+    subtitle: "Offline paid collections",
+  },
+  advance: {
+    title: "Advance Collected",
+    accent: "#8B4A6B",
+    icon: <SavingsRoundedIcon />,
+    subtitle: "Advance payments",
+  },
+  demand: {
+    title: "Demand Raised",
+    accent: "#C45C3A",
+    icon: <RequestQuoteRoundedIcon />,
+    subtitle: "Fee demands created",
+  },
+  adjust: {
+    title: "Adjust Amount",
+    accent: "#6B5B4A",
+    icon: <TuneRoundedIcon />,
+    subtitle: "Fee adjustments",
+  },
+};
+
 export default function FeesPage() {
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
   const filters = useFilterStore((s) => s.fees);
   const setFeeFilters = useFilterStore((s) => s.setFeeFilters);
 
-  const [view, setView] = useState<"all" | "today">("all");
-  const [allOptions, setAllOptions] = useState<PortalFilters>(emptyFilters);
+  const [todayOnly, setTodayOnly] = useState(false);
+  const [kind, setKind] = useState<FeeKind>("total");
+  const [allOptions, setAllOptions] = useState<PortalFilters>(emptyOptions);
+  const [summary, setSummary] = useState<FeeSummary>(emptySummary);
   const [items, setItems] = useState<FeeItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [todayTotal, setTodayTotal] = useState(0);
-  const [todayAmount, setTodayAmount] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSizeOption>(50);
   const [pageCount, setPageCount] = useState(1);
@@ -74,17 +155,18 @@ export default function FeesPage() {
     setPage(1);
     fetchFilters(selectedBranchId)
       .then(setAllOptions)
-      .catch(() => setAllOptions(emptyFilters));
+      .catch(() => setAllOptions(emptyOptions));
   }, [selectedBranchId]);
 
   function applyFeeFilters(patch: Partial<typeof filters>) {
     setPage(1);
     setFeeFilters(
       pruneFeeFilters(allOptions, {
-        paid: filters.paid,
         course: filters.course,
         specialization: filters.specialization,
         academicYear: filters.academicYear,
+        courseYear: filters.courseYear,
+        quota: filters.quota || "",
         ...patch,
       })
     );
@@ -97,33 +179,25 @@ export default function FeesPage() {
       setLoading(true);
       try {
         const data = await fetchFees({
-          paid: view === "all" ? filters.paid || undefined : undefined,
-          course: view === "all" ? filters.course || undefined : undefined,
-          specialization: view === "all" ? filters.specialization || undefined : undefined,
-          academicYear: view === "all" ? filters.academicYear || undefined : undefined,
           branch: selectedBranchId,
-          today: view === "today",
+          today: todayOnly,
+          kind,
+          course: filters.course || undefined,
+          specialization: filters.specialization || undefined,
+          academicYear: filters.academicYear || undefined,
+          courseYear: filters.courseYear || undefined,
+          quota: filters.quota || undefined,
           page,
           pageSize,
         });
-        if (active) {
-          setItems(data.items);
-          setTotal(data.total);
-          setTotalAmount(data.totalAmount);
-          setPageCount(data.pageCount || 1);
-          if (data.page && data.page !== page) setPage(data.page);
-          if (view === "today") {
-            setTodayTotal(data.total);
-            setTodayAmount(data.totalAmount);
-          } else if (data.todayTotal != null) {
-            setTodayTotal(data.todayTotal);
-            setTodayAmount(data.todayAmount || 0);
-          }
-        }
+        if (!active) return;
+        setSummary(data.summary || emptySummary);
+        setItems(data.items || []);
+        setTotal(data.total || 0);
+        setPageCount(data.pageCount || 1);
+        if (data.page && data.page !== page) setPage(data.page);
       } catch (err: any) {
-        if (active) {
-          toastError(err, "Could not load fee records.");
-        }
+        if (active) toastError(err, "Could not load fee records.");
       } finally {
         if (active) setLoading(false);
       }
@@ -134,272 +208,259 @@ export default function FeesPage() {
       active = false;
     };
   }, [
-    view,
     selectedBranchId,
-    filters.paid,
+    todayOnly,
+    kind,
     filters.course,
     filters.specialization,
     filters.academicYear,
+    filters.courseYear,
+    filters.quota,
     page,
     pageSize,
   ]);
 
-  // Keep today card count fresh even when viewing all (reload today stats lightly)
-  useEffect(() => {
-    if (view !== "all") return;
-    let active = true;
-    fetchFees({ branch: selectedBranchId, today: true, page: 1, pageSize: 50 })
-      .then((data) => {
-        if (!active) return;
-        setTodayTotal(data.total);
-        setTodayAmount(data.totalAmount);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [view, selectedBranchId]);
+  const columns: Column<FeeItem>[] = useMemo(
+    () => [
+      {
+        key: "student",
+        label: "Student",
+        render: (r) => r.studentName,
+        getValue: (r) => r.studentName,
+        minWidth: 140,
+      },
+      {
+        key: "roll",
+        label: "Roll No",
+        render: (r) => r.rollNumber,
+        getValue: (r) => r.rollNumber,
+      },
+      {
+        key: "amount",
+        label: "Amount",
+        align: "right",
+        render: (r) => (
+          <Box component="span" fontWeight={600}>
+            {formatCurrency(r.amount)}
+          </Box>
+        ),
+        getValue: (r) => r.amount,
+      },
+      {
+        key: "mode",
+        label: "Mode",
+        render: (r) => r.mode || "—",
+        getValue: (r) => r.mode,
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (r) => (
+          <Chip
+            size="small"
+            label={r.status || "—"}
+            color={r.status === "paid" ? "success" : "default"}
+            variant="outlined"
+            sx={{ height: 22, fontSize: 11, fontWeight: 600, textTransform: "capitalize" }}
+          />
+        ),
+        getValue: (r) => r.status,
+      },
+      {
+        key: "type",
+        label: "Type",
+        render: (r) => r.type || "—",
+        getValue: (r) => r.type,
+      },
+      {
+        key: "year",
+        label: "Academic Year",
+        render: (r) => r.academicYear,
+        getValue: (r) => r.academicYear,
+      },
+      {
+        key: "date",
+        label: "Date",
+        render: (r) => (r.date ? String(r.date).slice(0, 10) : "—"),
+        getValue: (r) => (r.date ? String(r.date).slice(0, 10) : ""),
+      },
+    ],
+    []
+  );
 
-  const columns: Column<FeeItem>[] = [
-    {
-      key: "student",
-      label: "Student",
-      render: (r) => r.studentName,
-      getValue: (r) => r.studentName,
-      minWidth: 140,
-    },
-    {
-      key: "roll",
-      label: "Roll No",
-      render: (r) => r.rollNumber,
-      getValue: (r) => r.rollNumber,
-    },
-    {
-      key: "amount",
-      label: "Fee Amount",
-      align: "right",
-      render: (r) => (
-        <Box component="span" fontWeight={600}>
-          {formatCurrency(r.totalAmount)}
-        </Box>
-      ),
-      getValue: (r) => r.totalAmount,
-    },
-    {
-      key: "pending",
-      label: "Pending",
-      align: "right",
-      render: (r) => formatCurrency(r.pendingAmount),
-      getValue: (r) => r.pendingAmount,
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (r) => (
-        <Chip
-          size="small"
-          label={r.feePaid ? "Paid" : "Pending"}
-          color={r.feePaid ? "success" : "warning"}
-          variant="outlined"
-          sx={{ height: 22, fontSize: 11, fontWeight: 600 }}
-        />
-      ),
-      getValue: (r) => (r.feePaid ? "Paid" : "Pending"),
-    },
-    {
-      key: "year",
-      label: "Academic Year",
-      render: (r) => r.academicYear,
-      getValue: (r) => r.academicYear,
-    },
-    {
-      key: "courseYear",
-      label: "Course Year",
-      render: (r) => r.courseYear,
-      getValue: (r) => r.courseYear,
-    },
-    {
-      key: "due",
-      label: "Due Date",
-      render: (r) => (r.dueDate ? String(r.dueDate).slice(0, 10) : "—"),
-      getValue: (r) => (r.dueDate ? String(r.dueDate).slice(0, 10) : ""),
-    },
+  const kindOrder: FeeKind[] = [
+    "total",
+    "online",
+    "offline",
+    "demand",
+    "advance",
+    "adjust",
   ];
 
   return (
     <Box>
       <PageHeader
         subtitle={
-          view === "today"
-            ? "Payments collected today (IST)."
-            : "Fee records with amount, pending balance, and payment status."
+          todayOnly
+            ? "Today’s fee totals. Tap a card for details."
+            : "Overall fee totals. Tap a card for details."
         }
         action={
-          view === "today" ? (
-            <Box
-              component="button"
-              onClick={() => {
-                setPage(1);
-                setView("all");
-              }}
-              sx={{
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 1,
-                bgcolor: "#fff",
-                px: 1.5,
-                py: 0.75,
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: "inherit",
-                cursor: "pointer",
-                color: "primary.main",
-                "&:hover": { bgcolor: "#F4F7F8", borderColor: "primary.main" },
-              }}
-            >
-              All fees
-            </Box>
-          ) : undefined
+          <FormControlLabel
+            control={
+              <Switch
+                checked={todayOnly}
+                onChange={(e) => {
+                  setPage(1);
+                  setTodayOnly(e.target.checked);
+                }}
+                size="small"
+              />
+            }
+            label="Today"
+            sx={{ m: 0, ml: 0.5, "& .MuiFormControlLabel-label": { fontWeight: 600, fontSize: 13 } }}
+          />
         }
       />
 
-      {view === "all" ? (
-        <Paper
-          elevation={0}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          mb: 2.5,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          boxShadow: "0 4px 18px rgba(11,44,52,0.04)",
+          animation: "fadeUp 0.4s ease both",
+        }}
+      >
+        <Box
           sx={{
-            p: 2,
-            mb: 2.5,
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 1,
-            boxShadow: "0 4px 18px rgba(11,44,52,0.04)",
-            animation: "fadeUp 0.4s ease both",
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "repeat(3, 1fr)",
+              lg: "repeat(5, 1fr)",
+            },
+            gap: 2,
           }}
         >
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Course</InputLabel>
-                <Select
-                  label="Course"
-                  value={filters.course}
-                  onChange={(e) => applyFeeFilters({ course: e.target.value })}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {options.courses.map((item) => (
-                    <MenuItem key={item.id} value={String(item.id)}>
-                      {item.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth size="small" disabled={!filters.course}>
-                <InputLabel>Specialization</InputLabel>
-                <Select
-                  label="Specialization"
-                  value={filters.specialization}
-                  onChange={(e) => applyFeeFilters({ specialization: e.target.value })}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {options.specializations.map((item) => (
-                    <MenuItem key={item.id} value={String(item.id)}>
-                      {item.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth size="small" disabled={!filters.specialization}>
-                <InputLabel>Academic Year</InputLabel>
-                <Select
-                  label="Academic Year"
-                  value={filters.academicYear}
-                  onChange={(e) => applyFeeFilters({ academicYear: e.target.value })}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {options.academicYears.map((item) => (
-                    <MenuItem key={item.id} value={String(item.id)}>
-                      {item.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Payment status</InputLabel>
-                <Select
-                  label="Payment status"
-                  value={filters.paid}
-                  onChange={(e) =>
-                    applyFeeFilters({ paid: e.target.value as "" | "true" | "false" })
-                  }
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="true">Paid</MenuItem>
-                  <MenuItem value="false">Pending</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Paper>
-      ) : null}
+          <FormControl fullWidth size="small">
+            <InputLabel>Course</InputLabel>
+            <Select
+              label="Course"
+              value={filters.course || ""}
+              onChange={(e) => applyFeeFilters({ course: e.target.value })}
+            >
+              <MenuItem value="">All</MenuItem>
+              {options.courses.map((item) => (
+                <MenuItem key={item.id} value={String(item.id)}>
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small" disabled={!filters.course}>
+            <InputLabel>Specialization</InputLabel>
+            <Select
+              label="Specialization"
+              value={filters.specialization || ""}
+              onChange={(e) => applyFeeFilters({ specialization: e.target.value })}
+            >
+              <MenuItem value="">All</MenuItem>
+              {options.specializations.map((item) => (
+                <MenuItem key={item.id} value={String(item.id)}>
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small" disabled={!filters.specialization}>
+            <InputLabel>Academic Year</InputLabel>
+            <Select
+              label="Academic Year"
+              value={filters.academicYear || ""}
+              onChange={(e) => applyFeeFilters({ academicYear: e.target.value })}
+            >
+              <MenuItem value="">All</MenuItem>
+              {options.academicYears.map((item) => (
+                <MenuItem key={item.id} value={String(item.id)}>
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small" disabled={!filters.academicYear}>
+            <InputLabel>Year</InputLabel>
+            <Select
+              label="Year"
+              value={filters.courseYear || ""}
+              onChange={(e) => applyFeeFilters({ courseYear: e.target.value })}
+            >
+              <MenuItem value="">All</MenuItem>
+              {options.courseYears.map((item) => (
+                <MenuItem key={item.id} value={String(item.id)}>
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Quota</InputLabel>
+            <Select
+              label="Quota"
+              value={filters.quota || ""}
+              onChange={(e) => applyFeeFilters({ quota: e.target.value })}
+            >
+              <MenuItem value="">All</MenuItem>
+              {(options.quotas || []).map((item) => (
+                <MenuItem key={`${item.id}-${item.courseId ?? "all"}`} value={String(item.id)}>
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      </Paper>
 
-      {view === "all" ? (
-        <Grid container spacing={2} sx={{ mb: 2.5 }}>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Total Fee Records"
-              value={total.toLocaleString("en-IN")}
-              accent="#C45C3A"
-              icon={<PaymentsRoundedIcon />}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Fees Amount"
-              value={formatCurrency(totalAmount)}
-              accent="#3A6B85"
-              icon={<AccountBalanceWalletRoundedIcon />}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <StatCard
-              title="Today Fees"
-              value={todayTotal.toLocaleString("en-IN")}
-              subtitle={formatCurrency(todayAmount)}
-              accent="#1A7A6D"
-              icon={<TodayRoundedIcon />}
-              onClick={() => {
-                setPage(1);
-                setView("today");
-              }}
-            />
-          </Grid>
-        </Grid>
-      ) : (
-        <Grid container spacing={2} sx={{ mb: 2.5 }}>
-          <Grid item xs={12} sm={6}>
-            <StatCard
-              title="Today Fee Records"
-              value={todayTotal.toLocaleString("en-IN")}
-              accent="#1A7A6D"
-              icon={<TodayRoundedIcon />}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <StatCard
-              title="Today Collected"
-              value={formatCurrency(todayAmount)}
-              accent="#3A6B85"
-              icon={<AccountBalanceWalletRoundedIcon />}
-            />
-          </Grid>
-        </Grid>
-      )}
+      <Grid container spacing={{ xs: 1.75, sm: 2 }} sx={{ mb: 2.5 }}>
+        {kindOrder.map((key, index) => {
+          const meta = KIND_META[key];
+          const bucket = summary[key] || emptySummary[key];
+          return (
+            <Grid item xs={12} sm={6} md={4} key={key}>
+              <StatCard
+                title={todayOnly && key === "demand" ? "Today Demand Raised" : meta.title}
+                value={formatCompactCurrency(bucket.amount)}
+                subtitle={
+                  <Box component="span" display="block">
+                    <Box
+                      component="span"
+                      display="block"
+                      sx={{ fontSize: 12, fontWeight: 600, color: "text.primary", mb: 0.25 }}
+                    >
+                      {formatCurrency(bucket.amount)}
+                    </Box>
+                    <Box component="span" sx={{ fontSize: 12, color: "text.secondary" }}>
+                      {bucket.count.toLocaleString("en-IN")} · {meta.subtitle}
+                    </Box>
+                  </Box>
+                }
+                accent={meta.accent}
+                icon={meta.icon}
+                selected={kind === key}
+                delay={index * 40}
+                onClick={() => {
+                  setPage(1);
+                  setKind(key);
+                }}
+              />
+            </Grid>
+          );
+        })}
+      </Grid>
 
       {loading ? (
         <Box minHeight={280} display="flex" alignItems="center" justifyContent="center">
@@ -410,7 +471,7 @@ export default function FeesPage() {
           columns={columns}
           rows={items}
           rowKey={(r) => r.id}
-          searchPlaceholder="Search student, roll no, year…"
+          searchPlaceholder={`Search ${KIND_META[kind].title.toLowerCase()}…`}
           pagination={{
             page,
             pageSize,

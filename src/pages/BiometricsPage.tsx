@@ -40,7 +40,6 @@ export default function BiometricsPage() {
   const [pageSize, setPageSize] = useState<PageSizeOption>(50);
   const [pageCount, setPageCount] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [showList, setShowList] = useState(true);
 
   useEffect(() => {
     setPage(1);
@@ -119,10 +118,10 @@ export default function BiometricsPage() {
           <StatCard
             title="Total Biometric"
             value={total.toLocaleString("en-IN")}
-            subtitle="Tap to show / hide list"
+            subtitle="All devices"
             accent="#0B2C34"
             icon={<FingerprintRoundedIcon />}
-            onClick={() => setShowList((v) => !v)}
+            selected
           />
         </Grid>
       </Grid>
@@ -161,7 +160,7 @@ export default function BiometricsPage() {
         </Grid>
       </Paper>
 
-      {!showList ? null : loading ? (
+      {loading ? (
         <Box minHeight={240} display="flex" alignItems="center" justifyContent="center">
           <CircularProgress />
         </Box>
