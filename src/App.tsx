@@ -7,15 +7,15 @@ import {
   useLocation,
 } from "react-router-dom";
 import AdminLayout from "@/layouts/AdminLayout";
-import AccountCategoriesPage from "@/pages/AccountCategoriesPage";
-import AdmissionsPage from "@/pages/AdmissionsPage";
+// import AccountCategoriesPage from "@/pages/AccountCategoriesPage";
+// import AdmissionsPage from "@/pages/AdmissionsPage";
 import AttendancePage from "@/pages/AttendancePage";
-import BankAccountsPage from "@/pages/BankAccountsPage";
-import BiometricsPage from "@/pages/BiometricsPage";
+// import BankAccountsPage from "@/pages/BankAccountsPage";
+// import BiometricsPage from "@/pages/BiometricsPage";
 import DashboardPage from "@/pages/DashboardPage";
-import DepartmentListPage from "@/pages/DepartmentListPage";
-import DepartmentsPage from "@/pages/DepartmentsPage";
-import EmployeesPage from "@/pages/EmployeesPage";
+// import DepartmentListPage from "@/pages/DepartmentListPage";
+// import DepartmentsPage from "@/pages/DepartmentsPage";
+// import EmployeesPage from "@/pages/EmployeesPage";
 import FeesPage from "@/pages/FeesPage";
 import HostelListPage from "@/pages/HostelListPage";
 import HostelPage from "@/pages/HostelPage";
@@ -93,18 +93,21 @@ export default function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+          {/* Student life-cycle routes */}
           <Route path="students" element={<StudentsPage />} />
-          <Route path="admissions" element={<AdmissionsPage />} />
-          <Route path="employees" element={<EmployeesPage />} />
           <Route path="fees" element={<FeesPage />} />
           <Route path="hostel" element={<HostelPage />} />
           <Route path="hostel/:kind" element={<HostelListPage />} />
           <Route path="attendance" element={<AttendancePage />} />
+          {/* Non-student modules — commented (not removed)
+          <Route path="admissions" element={<AdmissionsPage />} />
+          <Route path="employees" element={<EmployeesPage />} />
           <Route path="biometrics" element={<BiometricsPage />} />
           <Route path="account-categories" element={<AccountCategoriesPage />} />
           <Route path="bank-accounts" element={<BankAccountsPage />} />
           <Route path="departments" element={<DepartmentsPage />} />
           <Route path="departments/:kind" element={<DepartmentListPage />} />
+          */}
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

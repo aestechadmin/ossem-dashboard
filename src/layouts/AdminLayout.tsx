@@ -10,7 +10,7 @@ import {
   DialogTitle,
   Collapse,
   Divider,
-  Drawer,
+  // Drawer, // left menu hidden
   FormControl,
   IconButton,
   InputAdornment,
@@ -31,18 +31,19 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
-import ApartmentRoundedIcon from "@mui/icons-material/ApartmentRounded";
-import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
-import HowToRegRoundedIcon from "@mui/icons-material/HowToRegRounded";
-import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
-import HomeWorkRoundedIcon from "@mui/icons-material/HomeWorkRounded";
-import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
-import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
+// Nav icons kept for restore when left menu is re-enabled
+// import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
+// import ApartmentRoundedIcon from "@mui/icons-material/ApartmentRounded";
+// import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
+// import HowToRegRoundedIcon from "@mui/icons-material/HowToRegRounded";
+// import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
+// import HomeWorkRoundedIcon from "@mui/icons-material/HomeWorkRounded";
+// import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
+// import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
 import FingerprintRoundedIcon from "@mui/icons-material/FingerprintRounded";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import AccountBalanceRoundedIcon from "@mui/icons-material/AccountBalanceRounded";
-import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
+// import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
@@ -88,20 +89,21 @@ const accountsChildren: NavChild[] = [
   },
 ];
 
+// Student life-cycle: left menu hidden — open modules from dashboard cards.
 const navItems: NavItem[] = [
-  { label: "Dashboard", path: "/", icon: <DashboardRoundedIcon fontSize="small" /> },
-  { label: "Academics", path: "/departments", icon: <ApartmentRoundedIcon fontSize="small" /> },
-  { label: "Admissions", path: "/admissions", icon: <HowToRegRoundedIcon fontSize="small" /> },
-  { label: "Students", path: "/students", icon: <SchoolRoundedIcon fontSize="small" /> },
-  { label: "Employees", path: "/employees", icon: <BadgeRoundedIcon fontSize="small" /> },
-  { label: "Fees", path: "/fees", icon: <PaymentsRoundedIcon fontSize="small" /> },
-  { label: "Hostel", path: "/hostel", icon: <HomeWorkRoundedIcon fontSize="small" /> },
-  { label: "Attendance", path: "/attendance", icon: <FactCheckRoundedIcon fontSize="small" /> },
-  {
-    label: "Accounts",
-    icon: <AccountBalanceWalletRoundedIcon fontSize="small" />,
-    children: accountsChildren,
-  },
+  // { label: "Dashboard", path: "/", icon: <DashboardRoundedIcon fontSize="small" /> },
+  // { label: "Academics", path: "/departments", icon: <ApartmentRoundedIcon fontSize="small" /> },
+  // { label: "Admissions", path: "/admissions", icon: <HowToRegRoundedIcon fontSize="small" /> },
+  // { label: "Students", path: "/students", icon: <SchoolRoundedIcon fontSize="small" /> },
+  // { label: "Employees", path: "/employees", icon: <BadgeRoundedIcon fontSize="small" /> },
+  // { label: "Fees", path: "/fees", icon: <PaymentsRoundedIcon fontSize="small" /> },
+  // { label: "Hostel", path: "/hostel", icon: <HomeWorkRoundedIcon fontSize="small" /> },
+  // { label: "Attendance", path: "/attendance", icon: <FactCheckRoundedIcon fontSize="small" /> },
+  // {
+  //   label: "Accounts",
+  //   icon: <AccountBalanceWalletRoundedIcon fontSize="small" />,
+  //   children: accountsChildren,
+  // },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -136,28 +138,33 @@ const pageTitles: Record<string, string> = {
 };
 
 const searchableMenus = [
-  ...navItems.flatMap((item) =>
-    item.children?.length
-      ? item.children.map((child) => ({
-          label: child.label,
-          path: child.path,
-          group: item.label,
-        }))
-      : item.path
-        ? [{ label: item.label, path: item.path, group: "Main" }]
-        : []
-  ),
-  { label: "Department List", path: "/departments/list", group: "Academics" },
-  { label: "Courses", path: "/departments/courses", group: "Academics" },
-  { label: "Specializations", path: "/departments/specializations", group: "Academics" },
-  { label: "Classrooms", path: "/departments/classrooms", group: "Academics" },
-  { label: "Subjects", path: "/departments/subjects", group: "Academics" },
-  { label: "Class Schedules", path: "/departments/schedules", group: "Academics" },
+  // Student life-cycle shortcuts only (left menu hidden)
+  { label: "Students", path: "/students", group: "Students" },
+  { label: "Fees", path: "/fees", group: "Students" },
+  { label: "Hostel", path: "/hostel", group: "Students" },
+  { label: "Attendance", path: "/attendance", group: "Students" },
   { label: "Hostels", path: "/hostel/hostels", group: "Hostel" },
   { label: "Hostel Students", path: "/hostel/students", group: "Hostel" },
   { label: "Quarters", path: "/hostel/quarters", group: "Hostel" },
   { label: "Blocks", path: "/hostel/blocks", group: "Hostel" },
   { label: "Rooms", path: "/hostel/rooms", group: "Hostel" },
+  // ...navItems.flatMap((item) =>
+  //   item.children?.length
+  //     ? item.children.map((child) => ({
+  //         label: child.label,
+  //         path: child.path,
+  //         group: item.label,
+  //       }))
+  //     : item.path
+  //       ? [{ label: item.label, path: item.path, group: "Main" }]
+  //       : []
+  // ),
+  // { label: "Department List", path: "/departments/list", group: "Academics" },
+  // { label: "Courses", path: "/departments/courses", group: "Academics" },
+  // { label: "Specializations", path: "/departments/specializations", group: "Academics" },
+  // { label: "Classrooms", path: "/departments/classrooms", group: "Academics" },
+  // { label: "Subjects", path: "/departments/subjects", group: "Academics" },
+  // { label: "Class Schedules", path: "/departments/schedules", group: "Academics" },
 ];
 
 const accountsChildPaths = accountsChildren.map((c) => c.path);
@@ -250,7 +257,7 @@ export default function AdminLayout() {
     }
   }, [branches, selectedBranchId, setSelectedBranch]);
 
-  function renderInstitutionSelect() {
+  function renderInstitutionSelect(placement: "sidebar" | "header" = "sidebar") {
     const fallbackId = branches.length > 0 ? branches[0].id : null;
     const selectValue =
       effectiveBranchId === "" || effectiveBranchId == null
@@ -258,13 +265,16 @@ export default function AdminLayout() {
           ? String(fallbackId)
           : ""
         : String(effectiveBranchId);
+    const inHeader = placement === "header";
 
     return (
       <FormControl
         size="small"
-        fullWidth
+        fullWidth={!inHeader}
         sx={{
-          mb: 1.5,
+          mb: inHeader ? 0 : 1.5,
+          minWidth: inHeader ? { xs: 140, sm: 200, md: 240 } : undefined,
+          maxWidth: inHeader ? { xs: 180, sm: 280 } : undefined,
           "& .MuiOutlinedInput-root": {
             bgcolor: "#F4F7F8",
             fontWeight: 500,
@@ -272,9 +282,9 @@ export default function AdminLayout() {
           },
         }}
       >
-        <InputLabel id="sidebar-institution-label">Institution</InputLabel>
+        <InputLabel id={`${placement}-institution-label`}>Institution</InputLabel>
         <Select
-          labelId="sidebar-institution-label"
+          labelId={`${placement}-institution-label`}
           label="Institution"
           value={selectValue}
           disabled={branchesLoading && branches.length === 0}
@@ -346,11 +356,13 @@ export default function AdminLayout() {
   }
 
   const railExpanded = isDesktop ? expanded : true;
-  const contentOffset = isDesktop
-    ? expanded
-      ? expandedWidth
-      : COLLAPSED_WIDTH
-    : COLLAPSED_WIDTH;
+  // Left menu hidden for student life-cycle — full-width content
+  // const contentOffset = isDesktop
+  //   ? expanded
+  //     ? expandedWidth
+  //     : COLLAPSED_WIDTH
+  //   : COLLAPSED_WIDTH;
+  const contentOffset = 0;
 
   function openUserMenu(el: HTMLElement) {
     if (closeTimer.current) {
@@ -584,7 +596,8 @@ export default function AdminLayout() {
         </IconButton>
       </Box>
 
-      {railExpanded ? (
+      {/* Institution moved to header (right) for student life-cycle */}
+      {/* {railExpanded ? (
         renderInstitutionSelect()
       ) : (
         <Tooltip title="Institution" placement="right">
@@ -602,9 +615,9 @@ export default function AdminLayout() {
             <BusinessRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-      )}
+      )} */}
 
-      {railExpanded ? (
+      {/* {railExpanded ? (
         <Typography
           variant="overline"
           sx={{ px: 1.25, mb: 0.75, color: "text.secondary", fontSize: 10 }}
@@ -613,7 +626,7 @@ export default function AdminLayout() {
         </Typography>
       ) : null}
 
-      {renderNavList(railExpanded)}
+      {renderNavList(railExpanded)} */}
     </Box>
   );
 
@@ -629,6 +642,7 @@ export default function AdminLayout() {
         gap: 0.5,
       }}
     >
+      {/* Left menu hidden
       <IconButton
         onClick={() => setMobileOpen(true)}
         aria-label="Open menu"
@@ -643,6 +657,7 @@ export default function AdminLayout() {
         <MenuRoundedIcon />
       </IconButton>
       {renderNavList(false)}
+      */}
     </Box>
   );
 
@@ -690,16 +705,27 @@ export default function AdminLayout() {
           <ChevronLeftRoundedIcon />
         </IconButton>
       </Box>
-      {renderInstitutionSelect()}
-      <Typography
+      {/* Institution moved to header (right) */}
+      {/* {renderInstitutionSelect()} */}
+      {/* <Typography
         variant="overline"
         sx={{ px: 1.25, mb: 0.75, color: "text.secondary", fontSize: 10 }}
       >
         Menu
       </Typography>
-      {renderNavList(true, () => setMobileOpen(false))}
+      {renderNavList(true, () => setMobileOpen(false))} */}
     </Box>
   );
+
+  // Preserve menu helpers for restore (left drawer commented out)
+  void COLLAPSED_WIDTH;
+  void expandedWidth;
+  void mobileOpen;
+  void contentOffset;
+  void renderNavList;
+  void desktopDrawer;
+  void mobileMiniRail;
+  void mobileFullDrawer;
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
@@ -707,8 +733,11 @@ export default function AdminLayout() {
         position="fixed"
         elevation={0}
         sx={{
-          width: { xs: `calc(100% - ${COLLAPSED_WIDTH}px)`, md: `calc(100% - ${contentOffset}px)` },
-          ml: { xs: `${COLLAPSED_WIDTH}px`, md: `${contentOffset}px` },
+          // Left menu hidden — full-width header
+          // width: { xs: `calc(100% - ${COLLAPSED_WIDTH}px)`, md: `calc(100% - ${contentOffset}px)` },
+          // ml: { xs: `${COLLAPSED_WIDTH}px`, md: `${contentOffset}px` },
+          width: "100%",
+          ml: 0,
           bgcolor: "rgba(255,255,255,0.86)",
           backdropFilter: "blur(14px)",
           color: "text.primary",
@@ -738,7 +767,23 @@ export default function AdminLayout() {
             >
               <ArrowBackRoundedIcon />
             </IconButton>
-          ) : null}
+          ) : (
+            <Box
+              onClick={() => navigate("/")}
+              sx={{
+                display: { xs: "none", sm: "flex" },
+                alignItems: "center",
+                cursor: "pointer",
+                mr: 1,
+                px: 1.25,
+                py: 0.75,
+                borderRadius: 1,
+                background: "linear-gradient(145deg, #0B2C34 0%, #164854 100%)",
+              }}
+            >
+              <OssemLogo maxWidth={110} />
+            </Box>
+          )}
 
           <Typography
             variant="h6"
@@ -752,8 +797,10 @@ export default function AdminLayout() {
               mr: 1,
             }}
           >
-            {pageTitle}
+            {location.pathname === "/" ? "Student Life Cycle" : pageTitle}
           </Typography>
+
+          {renderInstitutionSelect("header")}
 
           <Tooltip title="Search menu">
             <IconButton
@@ -1043,7 +1090,7 @@ export default function AdminLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Mobile: icon rail always visible */}
+      {/* Left menu hidden for student life-cycle
       <Drawer
         variant="permanent"
         sx={{
@@ -1064,7 +1111,6 @@ export default function AdminLayout() {
         {mobileMiniRail}
       </Drawer>
 
-      {/* Mobile: full menu overlay */}
       <Drawer
         variant="temporary"
         open={!isDesktop && mobileOpen}
@@ -1082,7 +1128,6 @@ export default function AdminLayout() {
         {mobileFullDrawer}
       </Drawer>
 
-      {/* Desktop: expand / collapse (icons remain) */}
       <Drawer
         variant="permanent"
         sx={{
@@ -1111,15 +1156,17 @@ export default function AdminLayout() {
       >
         {desktopDrawer}
       </Drawer>
+      */}
 
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: {
-            xs: `calc(100% - ${COLLAPSED_WIDTH}px)`,
-            md: `calc(100% - ${contentOffset}px)`,
-          },
+          // width: {
+          //   xs: `calc(100% - ${COLLAPSED_WIDTH}px)`,
+          //   md: `calc(100% - ${contentOffset}px)`,
+          // },
+          width: "100%",
           p: {
             xs: 1.75,
             sm: 2.5,

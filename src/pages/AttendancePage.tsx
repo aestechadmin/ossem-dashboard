@@ -11,12 +11,12 @@ import {
   Select,
   Switch,
 } from "@mui/material";
-import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
+// import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
-import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
+// import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 import {
   fetchAttendanceSchedules,
   fetchAttendances,
@@ -79,7 +79,7 @@ function formatScheduleTime(inTime: string | null, outTime: string | null) {
 }
 
 export default function AttendancePage() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
   const filters = useFilterStore((s) => s.attendance);
   const setAttendanceFilters = useFilterStore((s) => s.setAttendanceFilters);
@@ -94,6 +94,8 @@ export default function AttendancePage() {
   const [present, setPresent] = useState(0);
   const [absent, setAbsent] = useState(0);
   const [scheduleTotal, setScheduleTotal] = useState(0);
+  void total;
+  void scheduleTotal;
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSizeOption>(50);
   const [pageCount, setPageCount] = useState(1);
@@ -462,6 +464,7 @@ export default function AttendancePage() {
       </Paper>
 
       <Grid container spacing={{ xs: 1.75, sm: 2 }} sx={{ mb: 2.5 }}>
+        {/* Total Attendance — replaced by Present / Absent for student life-cycle
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Attendance"
@@ -471,7 +474,8 @@ export default function AttendancePage() {
             icon={<FactCheckRoundedIcon />}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        */}
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Present"
             value={formatNumber(present)}
@@ -481,7 +485,7 @@ export default function AttendancePage() {
             delay={40}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Absent"
             value={formatNumber(absent)}
@@ -491,6 +495,7 @@ export default function AttendancePage() {
             delay={80}
           />
         </Grid>
+        {/* Academics schedules — commented with student life-cycle
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title={filters.today ? "Today Schedules" : "Schedules"}
@@ -502,6 +507,7 @@ export default function AttendancePage() {
             delay={120}
           />
         </Grid>
+        */}
       </Grid>
 
       {loading ? (
