@@ -1,9 +1,10 @@
-import { Box, CircularProgress, Grid } from "@mui/material";
+import { Box, Grid } from "@mui/material";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import { useEffect, useState } from "react";
 import { fetchAccountCategories, type AccountCategoryItem } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
 import { toastError } from "@/store/toastStore";
 
@@ -83,9 +84,7 @@ export default function AccountCategoriesPage() {
       </Grid>
 
       {loading ? (
-        <Box minHeight={240} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress />
-        </Box>
+        <PageSkeleton cards={0} table />
       ) : (
         <DataTableCard
           columns={columns}

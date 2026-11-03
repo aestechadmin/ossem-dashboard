@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, Paper, Typography } from "@mui/material";
+import { Box, Grid, Paper, Typography } from "@mui/material";
 import HomeWorkRoundedIcon from "@mui/icons-material/HomeWorkRounded";
 import ApartmentRoundedIcon from "@mui/icons-material/ApartmentRounded";
 import DomainRoundedIcon from "@mui/icons-material/DomainRounded";
@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchHostelOverview, type HostelOverviewStats } from "@/api/adminPortal";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
@@ -74,8 +75,9 @@ export default function HostelPage() {
 
   if (loading) {
     return (
-      <Box minHeight={320} display="flex" alignItems="center" justifyContent="center">
-        <CircularProgress />
+      <Box>
+        <PageHeader subtitle="Tap a card to open hostels, students, blocks, or rooms." />
+        <PageSkeleton cards={4} charts={2} table={false} />
       </Box>
     );
   }

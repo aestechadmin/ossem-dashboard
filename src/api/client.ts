@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
+import { useLoadingStore } from "@/store/loadingStore";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:1337/api",
@@ -42,12 +43,23 @@ api.interceptors.request.use((config) => {
   if (adminSessionId && !isAuthLocal) {
     config.headers["X-Admin-Session"] = adminSessionId;
   }
+  if (!(config as { skipLoadingBar?: boolean }).skipLoadingBar) {
+    useLoadingStore.getState().start();
+  }
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (!(response.config as { skipLoadingBar?: boolean } | undefined)?.skipLoadingBar) {
+      useLoadingStore.getState().stop();
+    }
+    return response;
+  },
   (error) => {
+    if (!(error?.config as { skipLoadingBar?: boolean } | undefined)?.skipLoadingBar) {
+      useLoadingStore.getState().stop();
+    }
     const url = requestUrl(error);
     // Never wipe auth while verifying OTP / logging in
     if (/\/auth\/local/i.test(url)) {

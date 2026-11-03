@@ -1,6 +1,5 @@
 import {
   Box,
-  CircularProgress,
   FormControl,
   Grid,
   InputLabel,
@@ -18,6 +17,7 @@ import {
 } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
@@ -161,9 +161,7 @@ export default function BiometricsPage() {
       </Paper>
 
       {loading ? (
-        <Box minHeight={240} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress />
-        </Box>
+        <PageSkeleton cards={0} table />
       ) : (
         <DataTableCard
           columns={columns}

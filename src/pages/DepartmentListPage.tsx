@@ -1,4 +1,4 @@
-import { Box, CircularProgress } from "@mui/material";
+import { Box } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
 
@@ -169,9 +170,7 @@ export default function DepartmentListPage() {
       <PageHeader subtitle={meta.subtitle} />
 
       {loading ? (
-        <Box minHeight={280} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress />
-        </Box>
+        <PageSkeleton cards={0} table />
       ) : (
         <DataTableCard
           columns={columns}

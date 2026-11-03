@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, Paper, Typography } from "@mui/material";
+import { Box, Grid, Paper, Typography } from "@mui/material";
 import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchDepartments, type DepartmentStats } from "@/api/adminPortal";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
@@ -62,8 +63,9 @@ export default function DepartmentsPage() {
 
   if (loading) {
     return (
-      <Box minHeight={320} display="flex" alignItems="center" justifyContent="center">
-        <CircularProgress />
+      <Box>
+        <PageHeader subtitle="Tap a card to open the full list for that category." />
+        <PageSkeleton cards={4} charts={2} table={false} />
       </Box>
     );
   }

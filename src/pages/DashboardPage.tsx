@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, Paper, Tooltip, Typography } from "@mui/material";
+import { Box, Grid, Paper, Tooltip, Typography } from "@mui/material";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
@@ -19,6 +19,7 @@ import {
   type StudentStats,
 } from "@/api/adminPortal";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
@@ -190,8 +191,9 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <Box minHeight={320} display="flex" alignItems="center" justifyContent="center">
-        <CircularProgress />
+      <Box>
+        <PageHeader subtitle="Student life cycle — tap a card to open students, fees, hostel, or attendance." />
+        <PageSkeleton cards={4} charts={4} wideChart table={false} />
       </Box>
     );
   }

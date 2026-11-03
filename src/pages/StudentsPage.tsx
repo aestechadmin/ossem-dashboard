@@ -1,7 +1,6 @@
 import {
   Box,
   Chip,
-  CircularProgress,
   FormControl,
   Grid,
   InputLabel,
@@ -23,6 +22,7 @@ import {
 } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import PiePanel from "@/components/PiePanel";
 import StatCard from "@/components/StatCard";
 import { useAuthStore } from "@/store/authStore";
@@ -316,9 +316,7 @@ export default function StudentsPage() {
       </Paper>
 
       {loading ? (
-        <Box minHeight={160} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress />
-        </Box>
+        <PageSkeleton cards={3} charts={2} table={false} />
       ) : (
         <>
           <Grid container spacing={2} sx={{ mb: 2.5 }}>
@@ -387,9 +385,7 @@ export default function StudentsPage() {
       )}
 
       {tableLoading ? (
-        <Box minHeight={240} display="flex" alignItems="center" justifyContent="center">
-          <CircularProgress />
-        </Box>
+        <PageSkeleton cards={0} table />
       ) : (
         <DataTableCard
           columns={columns}

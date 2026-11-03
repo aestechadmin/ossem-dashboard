@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid } from "@mui/material";
+import { Box, Grid } from "@mui/material";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchEmployees, type EmployeeItem } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
+import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
@@ -200,9 +201,7 @@ export default function EmployeesPage() {
 
       <Box ref={tableRef} sx={{ scrollMarginTop: 88 }}>
         {loading ? (
-          <Box minHeight={280} display="flex" alignItems="center" justifyContent="center">
-            <CircularProgress />
-          </Box>
+          <PageSkeleton cards={0} table />
         ) : (
           <DataTableCard
             columns={columns}

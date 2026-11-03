@@ -20,6 +20,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  LinearProgress,
   Menu,
   MenuItem,
   Popover,
@@ -59,6 +60,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { fetchBranches } from "@/api/adminPortal";
 import { useAuthStore } from "@/store/authStore";
+import { useLoadingStore } from "@/store/loadingStore";
 import { toastError } from "@/store/toastStore";
 import OssemLogo from "@/components/OssemLogo";
 
@@ -199,6 +201,8 @@ export default function AdminLayout() {
   const jwt = useAuthStore((s) => s.jwt);
   const adminSessionId = useAuthStore((s) => s.adminSessionId);
   const logout = useAuthStore((s) => s.logout);
+  const loadingVisible = useLoadingStore((s) => s.visible);
+  const loadingProgress = useLoadingStore((s) => s.progress);
   const branches = useAuthStore((s) => s.branches);
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
   const setBranches = useAuthStore((s) => s.setBranches);
@@ -1088,6 +1092,24 @@ export default function AdminLayout() {
             </Menu>
           </Box>
         </Toolbar>
+        {loadingVisible ? (
+          <LinearProgress
+            variant="determinate"
+            value={loadingProgress}
+            sx={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 3,
+              bgcolor: "rgba(11,44,52,0.08)",
+              "& .MuiLinearProgress-bar": {
+                bgcolor: "#0B2C34",
+                transition: "transform 0.2s linear",
+              },
+            }}
+          />
+        ) : null}
       </AppBar>
 
       {/* Left menu hidden for student life-cycle
