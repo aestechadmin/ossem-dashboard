@@ -10,6 +10,7 @@ export type OverviewStats = {
 
 export type AttendanceItem = {
   id: number;
+  studentId?: number | null;
   studentName: string;
   rollNumber: string;
   present: boolean;
@@ -24,6 +25,7 @@ export type AttendanceItem = {
   subject: string;
   classroom: string;
   scheduleId: number | null;
+  reason?: string;
 };
 
 export type HostelOverviewStats = {
@@ -68,7 +70,9 @@ export type FilterOption = {
   label: string;
   yearNumber?: number;
   courseId?: number | null;
+  courseIds?: number[];
   specializationId?: number | null;
+  specializationIds?: number[];
   academicYearId?: number | null;
 };
 
@@ -78,6 +82,7 @@ export type PortalFilters = {
   academicYears: FilterOption[];
   courseYears: FilterOption[];
   classrooms: FilterOption[];
+  subjects?: FilterOption[];
   quotas?: FilterOption[];
 };
 
@@ -120,7 +125,7 @@ export type AdmissionItem = {
   branch: string;
 };
 
-export type FeeKind = "total" | "online" | "offline" | "advance" | "demand" | "adjust";
+export type FeeKind = "all" | "total" | "online" | "offline" | "advance" | "demand" | "adjust";
 
 export type FeeSummaryBucket = {
   amount: number;
@@ -134,10 +139,13 @@ export type FeeSummary = {
   advance: FeeSummaryBucket;
   demand: FeeSummaryBucket;
   adjust: FeeSummaryBucket;
+  paidCount?: number;
+  unpaidCount?: number;
 };
 
 export type FeeItem = {
   id: number;
+  studentId?: number | null;
   studentName: string;
   rollNumber: string;
   amount: number;
@@ -208,9 +216,12 @@ export async function fetchBranches() {
     .filter((b) => Number.isFinite(b.id) && b.id > 0);
 }
 
-export async function fetchOverview(branch?: number | null) {
+export async function fetchOverview(branch?: number | null, course?: number | null) {
   const { data } = await api.get<OverviewStats>("/admin-portal/overview", {
-    params: { branch: branch || undefined },
+    params: {
+      branch: branch || undefined,
+      course: course || undefined,
+    },
   });
   return data;
 }
@@ -271,6 +282,34 @@ export async function fetchStudents(
       pageSize: params.pageSize || 50,
     },
   });
+  return data;
+}
+
+export type StudentSummary = {
+  student: StudentItem & { courseId?: number | null };
+  fees: {
+    summary: FeeSummary;
+    totalAmount: number;
+    demandAmount: number;
+  };
+  hostel: {
+    allocated: boolean;
+    room: string | null;
+    block: string | null;
+    roomId: number | null;
+    blockId: number | null;
+  };
+  attendance: {
+    presentMarks: number;
+    absentMarks: number;
+    totalMarks: number;
+  };
+};
+
+export async function fetchStudentSummary(studentId: number | string) {
+  const { data } = await api.get<StudentSummary>(
+    `/admin-portal/students/${studentId}/summary`
+  );
   return data;
 }
 
@@ -346,6 +385,7 @@ export async function fetchFees(
     academicYear?: string;
     courseYear?: string;
     quota?: string;
+    student?: string;
   } & PaginatedParams
 ) {
   const { data } = await api.get<
@@ -361,11 +401,12 @@ export async function fetchFees(
       branch: params.branch || undefined,
       today: params.today ? "true" : undefined,
       kind: params.kind || "total",
-      course: params.course || undefined,
-      specialization: params.specialization || undefined,
-      academicYear: params.academicYear || undefined,
-      courseYear: params.courseYear || undefined,
-      quota: params.quota || undefined,
+      course: params.student ? undefined : params.course || undefined,
+      specialization: params.student ? undefined : params.specialization || undefined,
+      academicYear: params.student ? undefined : params.academicYear || undefined,
+      courseYear: params.student ? undefined : params.courseYear || undefined,
+      quota: params.student ? undefined : params.quota || undefined,
+      student: params.student || undefined,
       page: params.page || 1,
       pageSize: params.pageSize || 50,
     },
@@ -620,6 +661,7 @@ export type HostelListFilters = {
   specialization?: string;
   hostel?: string;
   room?: string;
+  student?: string;
 };
 
 export async function fetchHostelRooms(
@@ -659,10 +701,11 @@ export async function fetchHostelStudents(
         page: paging?.page || 1,
         pageSize: paging?.pageSize || 50,
         gender: gender && gender !== "all" ? gender : undefined,
-        course: filters?.course || undefined,
-        specialization: filters?.specialization || undefined,
+        course: filters?.student ? undefined : filters?.course || undefined,
+        specialization: filters?.student ? undefined : filters?.specialization || undefined,
         hostel: filters?.hostel || undefined,
         room: filters?.room || undefined,
+        student: filters?.student || undefined,
       },
     }
   );
@@ -678,6 +721,7 @@ export async function fetchAttendances(
     courseYear?: string;
     classroom?: string;
     schedule?: string;
+    student?: string;
     present?: string;
     today?: boolean;
   } & PaginatedParams
@@ -686,17 +730,24 @@ export async function fetchAttendances(
     PaginatedResult<AttendanceItem> & {
       present: number;
       absent: number;
+      presentStudents?: number;
+      absentStudents?: number;
+      presentRecords?: number;
+      absentRecords?: number;
+      presentRate?: number;
+      totalRecords?: number;
       listTotal?: number;
     }
   >("/admin-portal/attendances", {
     params: {
       branch: params.branch || undefined,
-      course: params.course || undefined,
-      specialization: params.specialization || undefined,
-      academicYear: params.academicYear || undefined,
-      courseYear: params.courseYear || undefined,
-      classroom: params.classroom || undefined,
+      course: params.student ? undefined : params.course || undefined,
+      specialization: params.student ? undefined : params.specialization || undefined,
+      academicYear: params.student ? undefined : params.academicYear || undefined,
+      courseYear: params.student ? undefined : params.courseYear || undefined,
+      classroom: params.student ? undefined : params.classroom || undefined,
       schedule: params.schedule || undefined,
+      student: params.student || undefined,
       present: params.present || undefined,
       today: params.today ? "true" : undefined,
       page: params.page || 1,

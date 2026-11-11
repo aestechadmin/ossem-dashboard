@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { isJwtExpired } from "@/utils/jwt";
+import { pickDefaultBranch } from "@/utils/pickDefaultBranch";
+import { pickDefaultCourse } from "@/utils/pickDefaultCourse";
 
 type AuthUser = {
   id: number;
@@ -16,6 +18,11 @@ export type AuthBranch = {
   branchType?: string;
 };
 
+export type AuthCourse = {
+  id: number;
+  name: string;
+};
+
 type AuthChannel = "phone" | "email";
 
 export const SESSION_REVOKED_STORAGE_KEY = "ossem-admin-session-revoked";
@@ -28,6 +35,8 @@ type AuthState = {
   adminSessionId: string | null;
   branches: AuthBranch[];
   selectedBranchId: number | null;
+  courses: AuthCourse[];
+  selectedCourseId: number | null;
   otpToken: string | null;
   loginIdentifier: string | null;
   loginPassword: string | null;
@@ -50,6 +59,8 @@ type AuthState = {
   setAdminSession: (sessionId: string) => void;
   setBranches: (branches: AuthBranch[]) => void;
   setSelectedBranch: (branchId: number) => void;
+  setCourses: (courses: AuthCourse[]) => void;
+  setSelectedCourse: (courseId: number) => void;
   clearOtpPending: () => void;
   logout: (reason?: "session_revoked" | "auth_error", message?: string) => void;
 };
@@ -63,6 +74,8 @@ export const useAuthStore = create<AuthState>()(
       adminSessionId: null,
       branches: [],
       selectedBranchId: null,
+      courses: [],
+      selectedCourseId: null,
       otpToken: null,
       loginIdentifier: null,
       loginPassword: null,
@@ -76,20 +89,17 @@ export const useAuthStore = create<AuthState>()(
           loginPassword: channel === "email" ? password : null,
         }),
       setJwtForClaim: (jwt, user) => set({ jwt, user }),
-      finishLogin: (jwt, user, sessionId, branches = [], branchId = null) => {
+      finishLogin: (jwt, user, sessionId, branches = [], _branchId = null) => {
         const list = branches || [];
-        // Prefer first branch in list; fall back to API branchId only if list empty of match
-        const inList =
-          branchId != null && list.some((b) => b.id === branchId)
-            ? branchId
-            : null;
-        const defaultId = list.length > 0 ? list[0].id : inList;
+        // Always prefer GEMS after OTP/login (ignore API branchId / Bollineni default)
         set({
           jwt,
           user,
           adminSessionId: sessionId,
           branches: list,
-          selectedBranchId: defaultId,
+          selectedBranchId: pickDefaultBranch(list),
+          courses: [],
+          selectedCourseId: null,
           otpToken: null,
           loginIdentifier: null,
           loginPassword: null,
@@ -105,16 +115,33 @@ export const useAuthStore = create<AuthState>()(
             list.some((b) => b.id === state.selectedBranchId);
           return {
             branches: list,
-            // Always keep a real selection — default to first row
             selectedBranchId: stillValid
               ? state.selectedBranchId
-              : list.length > 0
-                ? list[0].id
-                : null,
+              : pickDefaultBranch(list),
           };
         });
       },
-      setSelectedBranch: (branchId) => set({ selectedBranchId: branchId }),
+      setSelectedBranch: (branchId) =>
+        set((state) => {
+          if (state.selectedBranchId === branchId) {
+            return { selectedBranchId: branchId };
+          }
+          // New branch → courses reload; clear until then
+          return {
+            selectedBranchId: branchId,
+            courses: [],
+            selectedCourseId: null,
+          };
+        }),
+      setCourses: (courses) =>
+        set((state) => {
+          const list = courses || [];
+          return {
+            courses: list,
+            selectedCourseId: pickDefaultCourse(list, state.selectedCourseId),
+          };
+        }),
+      setSelectedCourse: (courseId) => set({ selectedCourseId: courseId }),
       clearOtpPending: () =>
         set({
           otpToken: null,
@@ -137,6 +164,8 @@ export const useAuthStore = create<AuthState>()(
           adminSessionId: null,
           branches: [],
           selectedBranchId: null,
+          courses: [],
+          selectedCourseId: null,
           otpToken: null,
           loginIdentifier: null,
           loginPassword: null,
@@ -152,9 +181,9 @@ export const useAuthStore = create<AuthState>()(
         adminSessionId: state.adminSessionId,
         branches: state.branches,
         selectedBranchId: state.selectedBranchId,
+        selectedCourseId: state.selectedCourseId,
       }),
       onRehydrateStorage: () => (state, _error) => {
-        // JWT without admin session = half login — never keep it
         if (state?.jwt && (!state.adminSessionId || isJwtExpired(state.jwt))) {
           useAuthStore.getState().logout();
         } else if (
@@ -162,15 +191,14 @@ export const useAuthStore = create<AuthState>()(
           (state.selectedBranchId == null ||
             !state.branches.some((b) => b.id === state.selectedBranchId))
         ) {
-          // Always default to first branch if none selected
-          useAuthStore.getState().setSelectedBranch(state.branches[0].id);
+          const id = pickDefaultBranch(state.branches);
+          if (id != null) useAuthStore.getState().setSelectedBranch(id);
         }
       },
     }
   )
 );
 
-// Reliable hydrate flag — onRehydrateStorage alone can miss after HMR / sync storage
 function markAuthHydrated() {
   useAuthStore.getState().setHasHydrated(true);
 }

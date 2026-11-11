@@ -11,11 +11,9 @@ import {
   Collapse,
   Divider,
   // Drawer, // left menu hidden
-  FormControl,
+  // FormControl, InputAdornment, InputLabel, Select — used by commented institution/course dropdowns
   IconButton,
-  InputAdornment,
   InputBase,
-  InputLabel,
   List,
   ListItemButton,
   ListItemIcon,
@@ -24,7 +22,6 @@ import {
   Menu,
   MenuItem,
   Popover,
-  Select,
   Toolbar,
   Tooltip,
   Typography,
@@ -44,6 +41,7 @@ import {
 import FingerprintRoundedIcon from "@mui/icons-material/FingerprintRounded";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import AccountBalanceRoundedIcon from "@mui/icons-material/AccountBalanceRounded";
+// import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 // import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
@@ -58,7 +56,9 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { fetchBranches } from "@/api/adminPortal";
+import { fetchBranches, fetchFilters } from "@/api/adminPortal";
+import { useFilterStore } from "@/store/filterStore";
+import { pickDefaultBranch } from "@/utils/pickDefaultBranch";
 import { useAuthStore } from "@/store/authStore";
 import { useLoadingStore } from "@/store/loadingStore";
 import { toastError } from "@/store/toastStore";
@@ -130,8 +130,6 @@ const pageTitles: Record<string, string> = {
   "/hostel/rooms-partial": "Partial Rooms",
   "/hostel/rooms-blocked": "Blocked Rooms",
   "/hostel/students": "Hostel Students",
-  "/hostel/students-mens": "Mens Students",
-  "/hostel/students-women": "Women Students",
   "/hostel": "Hostel",
   "/attendance": "Attendance",
   "/biometrics": "Bio Metrics",
@@ -207,12 +205,49 @@ export default function AdminLayout() {
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
   const setBranches = useAuthStore((s) => s.setBranches);
   const setSelectedBranch = useAuthStore((s) => s.setSelectedBranch);
+  // courses / selectedCourseId — used when institution/course header Select is restored
+  // const courses = useAuthStore((s) => s.courses);
+  // const selectedCourseId = useAuthStore((s) => s.selectedCourseId);
+  const setCourses = useAuthStore((s) => s.setCourses);
+  // const setSelectedCourse = useAuthStore((s) => s.setSelectedCourse); // used by commented course Select
+  const setStudentFilters = useFilterStore((s) => s.setStudentFilters);
+  const setFeeFilters = useFilterStore((s) => s.setFeeFilters);
+  const setAttendanceFilters = useFilterStore((s) => s.setAttendanceFilters);
+  const setAdmissionFilters = useFilterStore((s) => s.setAdmissionFilters);
   const navigate = useNavigate();
   const location = useLocation();
   const displayName = user?.email || user?.username || user?.mobileNo || "Admin";
   const userMenuOpen = Boolean(userMenuAnchor);
   const [branchesLoading, setBranchesLoading] = useState(false);
+  const [, setCoursesLoading] = useState(false);
   const [branchMenuAnchor, setBranchMenuAnchor] = useState<HTMLElement | null>(null);
+
+  function syncPageFiltersToCourse(courseId: number) {
+    const course = String(courseId);
+    setStudentFilters({
+      course,
+      specialization: "",
+      academicYear: "",
+      courseYear: "",
+    });
+    setFeeFilters({
+      course,
+      specialization: "",
+      academicYear: "",
+      courseYear: "",
+      quota: "",
+    });
+    setAttendanceFilters({
+      course,
+      specialization: "",
+      academicYear: "",
+      courseYear: "",
+      classroom: "",
+      present: "",
+      today: false,
+    });
+    setAdmissionFilters({ course, specialization: "", academicYear: "" });
+  }
 
   useEffect(() => {
     // Wait until persisted auth is ready — otherwise branches call 401s and list stays empty
@@ -227,8 +262,9 @@ export default function AdminLayout() {
           setBranches(items);
           const current = useAuthStore.getState().selectedBranchId;
           const stillValid = current != null && items.some((b) => b.id === current);
-          // Initial / invalid → first institution in the list
-          setSelectedBranch(stillValid ? current! : items[0].id);
+          // Initial / invalid → GEMS (not Bollineni / first row)
+          const nextId = stillValid ? current! : pickDefaultBranch(items);
+          if (nextId != null) setSelectedBranch(nextId);
         } else if (useAuthStore.getState().branches.length === 0) {
           toastError(null, "No institutions found.");
         }
@@ -247,81 +283,60 @@ export default function AdminLayout() {
     };
   }, [jwt, adminSessionId, setBranches, setSelectedBranch]);
 
+  useEffect(() => {
+    if (!jwt || !adminSessionId || selectedBranchId == null) return;
+    let active = true;
+    setCoursesLoading(true);
+    fetchFilters(selectedBranchId)
+      .then((data) => {
+        if (!active) return;
+        const list = (data.courses || []).map((c) => ({
+          id: Number(c.id),
+          name: c.label,
+        }));
+        setCourses(list);
+        const nextId = useAuthStore.getState().selectedCourseId;
+        if (nextId != null) syncPageFiltersToCourse(nextId);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setCourses([]);
+        toastError(err, "Could not load courses.");
+      })
+      .finally(() => {
+        if (active) setCoursesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync helpers are stable enough for branch reload
+  }, [jwt, adminSessionId, selectedBranchId, setCourses]);
+
   const effectiveBranchId = useMemo(() => {
     if (selectedBranchId != null && branches.some((b) => b.id === selectedBranchId)) {
       return selectedBranchId;
     }
-    return branches.length > 0 ? branches[0].id : "";
+    return pickDefaultBranch(branches) ?? "";
   }, [branches, selectedBranchId]);
+
+  // Course Select value helper — restore with dropdown
+  // const effectiveCourseId = useMemo(() => {
+  //   if (selectedCourseId != null && courses.some((c) => c.id === selectedCourseId)) {
+  //     return selectedCourseId;
+  //   }
+  //   return courses.length > 0 ? courses[0].id : "";
+  // }, [courses, selectedCourseId]);
 
   useEffect(() => {
     if (branches.length === 0) return;
     if (selectedBranchId == null || !branches.some((b) => b.id === selectedBranchId)) {
-      setSelectedBranch(branches[0].id);
+      const id = pickDefaultBranch(branches);
+      if (id != null) setSelectedBranch(id);
     }
   }, [branches, selectedBranchId, setSelectedBranch]);
 
-  function renderInstitutionSelect(placement: "sidebar" | "header" = "sidebar") {
-    const fallbackId = branches.length > 0 ? branches[0].id : null;
-    const selectValue =
-      effectiveBranchId === "" || effectiveBranchId == null
-        ? fallbackId != null
-          ? String(fallbackId)
-          : ""
-        : String(effectiveBranchId);
-    const inHeader = placement === "header";
-
-    return (
-      <FormControl
-        size="small"
-        fullWidth={!inHeader}
-        sx={{
-          mb: inHeader ? 0 : 1.5,
-          minWidth: inHeader ? { xs: 140, sm: 200, md: 240 } : undefined,
-          maxWidth: inHeader ? { xs: 180, sm: 280 } : undefined,
-          "& .MuiOutlinedInput-root": {
-            bgcolor: "#F4F7F8",
-            fontWeight: 500,
-            fontSize: 13,
-          },
-        }}
-      >
-        <InputLabel id={`${placement}-institution-label`}>Institution</InputLabel>
-        <Select
-          labelId={`${placement}-institution-label`}
-          label="Institution"
-          value={selectValue}
-          disabled={branchesLoading && branches.length === 0}
-          onChange={(e) => {
-            const id = Number(e.target.value);
-            if (Number.isFinite(id) && id > 0) setSelectedBranch(id);
-          }}
-          startAdornment={
-            <InputAdornment position="start">
-              <BusinessRoundedIcon sx={{ color: "text.secondary", fontSize: 18 }} />
-            </InputAdornment>
-          }
-          MenuProps={{
-            PaperProps: { sx: { maxHeight: 360 } },
-          }}
-        >
-          {branches.length === 0 ? (
-            <MenuItem value="" disabled>
-              {branchesLoading ? "Loading…" : "No institutions"}
-            </MenuItem>
-          ) : (
-            branches.map((b) => (
-              <MenuItem key={b.id} value={String(b.id)}>
-                {b.name}
-              </MenuItem>
-            ))
-          )}
-        </Select>
-      </FormControl>
-    );
-  }
-
   const pageTitle = useMemo(() => {
+    if (/^\/students\/[^/]+$/.test(location.pathname)) return "Student";
     const match = Object.keys(pageTitles)
       .sort((a, b) => b.length - a.length)
       .find((path) =>
@@ -758,14 +773,26 @@ export default function AdminLayout() {
             minHeight: { xs: 64, sm: 68, xl: 76 },
             gap: { xs: 1, sm: 1.5 },
             px: { xs: 1.5, sm: 2.5, xl: 3 },
+            py: { xs: 1, sm: 0 },
+            flexWrap: { xs: "wrap", sm: "nowrap" },
+            alignItems: "center",
           }}
         >
           {location.pathname !== "/" ? (
             <IconButton
               edge="start"
               onClick={() => {
-                if (window.history.length > 1) navigate(-1);
-                else navigate("/");
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate("/");
+                }
+                // Back restore can leave scroll mid-page — force top next paint
+                window.requestAnimationFrame(() => {
+                  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                  document.documentElement.scrollTop = 0;
+                  document.body.scrollTop = 0;
+                });
               }}
               aria-label="Go back"
             >
@@ -773,39 +800,115 @@ export default function AdminLayout() {
             </IconButton>
           ) : (
             <Box
-              onClick={() => navigate("/")}
+              onClick={() => {
+                // Full reload home — fresh dashboard for current branch/course
+                window.location.assign("/");
+              }}
               sx={{
-                display: { xs: "none", sm: "flex" },
+                display: "flex",
                 alignItems: "center",
                 cursor: "pointer",
-                mr: 1,
-                px: 1.25,
-                py: 0.75,
+                // Mobile: logo takes full first-row width so it isn’t clipped
+                flex: { xs: "1 1 100%", sm: "0 0 auto" },
+                width: { xs: "100%", sm: "auto" },
+                maxWidth: { xs: "100%", sm: 220 },
+                mr: { xs: 0, sm: 1.5 },
+                mb: { xs: 0.25, sm: 0 },
+                px: { xs: 1.5, sm: 2 },
+                py: { xs: 1, sm: 1.25 },
                 borderRadius: 1,
                 background: "linear-gradient(145deg, #0B2C34 0%, #164854 100%)",
               }}
             >
-              <OssemLogo maxWidth={110} />
+              <OssemLogo
+                maxWidth="100%"
+                sx={{
+                  width: "100%",
+                  maxWidth: { xs: "100%", sm: 180, md: 200 },
+                }}
+              />
             </Box>
           )}
 
-          <Typography
-            variant="h6"
-            fontWeight={600}
-            noWrap
+          {location.pathname !== "/" ? (
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              noWrap
+              sx={{
+                flex: "1 1 auto",
+                minWidth: 0,
+                fontSize: { xs: 15, sm: 18, xl: 20 },
+                ml: 0.25,
+                mr: 1,
+              }}
+            >
+              {pageTitle}
+            </Typography>
+          ) : (
+            <Box
+              sx={{
+                flex: { xs: "0 0 auto", sm: "1 1 auto" },
+                minWidth: 0,
+                display: { xs: "none", sm: "block" },
+              }}
+            />
+          )}
+
+          {/* Institution / course dropdowns locked — GEMS + MBBS only (defaults via pickDefault*)
+          <Box
             sx={{
-              flex: "1 1 auto",
-              minWidth: 0,
-              fontSize: { xs: 15, sm: 18, xl: 20 },
-              ml: location.pathname === "/" ? 0 : 0.25,
-              mr: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              width: { xs: "100%", sm: "auto" },
+              flex: { xs: "1 1 100%", sm: "0 0 auto" },
+              order: { xs: 3, sm: 0 },
             }}
           >
-            {location.pathname === "/" ? "Student Life Cycle" : pageTitle}
-          </Typography>
+            {renderInstitutionSelect("header")}
+            {renderCourseSelect("header")}
+          </Box>
+          */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              minWidth: 0,
+              width: { xs: "100%", sm: "auto" },
+              flex: { xs: "1 1 100%", sm: "1 1 auto" },
+              order: { xs: 3, sm: 0 },
+              px: { xs: 0, sm: 1 },
+            }}
+          >
+            <BusinessRoundedIcon
+              sx={{ color: "text.secondary", fontSize: 18, flexShrink: 0 }}
+            />
+            <Typography
+              variant="body2"
+              noWrap
+              title={branches.find((b) => b.id === selectedBranchId)?.name || "GEMS"}
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: 13, sm: 14 },
+                color: "text.primary",
+                minWidth: 0,
+              }}
+            >
+              {branches.find((b) => b.id === selectedBranchId)?.name || "GEMS"}
+            </Typography>
+          </Box>
 
-          {renderInstitutionSelect("header")}
-
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: { xs: 1, sm: 1.5 },
+              ml: { xs: "auto", sm: 0 },
+              order: { xs: 2, sm: 0 },
+            }}
+          >
           <Tooltip title="Search menu">
             <IconButton
               aria-label="Search menu"
@@ -1091,6 +1194,7 @@ export default function AdminLayout() {
               )}
             </Menu>
           </Box>
+          </Box>
         </Toolbar>
         {loadingVisible ? (
           <LinearProgress
@@ -1196,7 +1300,8 @@ export default function AdminLayout() {
             lg: 3.5,
             xl: isDesktop ? 4 : 3.5,
           },
-          mt: { xs: 8, sm: 8.5, xl: 9.5 },
+          // Mobile header is 2 rows (logo + institution/course)
+          mt: { xs: 15, sm: 8.5, xl: 9.5 },
           maxWidth: { xl: 1600 },
           mx: { xl: "auto" },
           transition: theme.transitions.create(["margin", "width"], {

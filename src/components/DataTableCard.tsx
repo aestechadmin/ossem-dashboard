@@ -132,6 +132,8 @@ export default function DataTableCard<T>({
   const to = pagination
     ? Math.min(pagination.page * pagination.pageSize, overallTotal)
     : filteredSorted.length;
+  const serialBase = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
+  const colCount = columns.length + 1;
 
   return (
     <Paper
@@ -188,6 +190,24 @@ export default function DataTableCard<T>({
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
+              <TableCell
+                align="center"
+                sx={{
+                  fontWeight: 600,
+                  bgcolor: "#F3F6F7",
+                  color: "text.secondary",
+                  fontSize: 12,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                  width: 56,
+                  minWidth: 56,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                S.No
+              </TableCell>
               {columns.map((col) => {
                 const canSort = col.sortable !== false;
                 return (
@@ -230,12 +250,12 @@ export default function DataTableCard<T>({
           <TableBody>
             {filteredSorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={colCount} align="center" sx={{ py: 6 }}>
                   <Typography color="text.secondary">{emptyText}</Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSorted.map((row) => (
+              filteredSorted.map((row, index) => (
                 <TableRow
                   key={rowKey(row)}
                   hover
@@ -244,6 +264,12 @@ export default function DataTableCard<T>({
                     transition: "background-color 0.15s ease",
                   }}
                 >
+                  <TableCell
+                    align="center"
+                    sx={{ fontSize: 13, py: 1.35, color: "text.secondary", fontWeight: 500 }}
+                  >
+                    {serialBase + index + 1}
+                  </TableCell>
                   {columns.map((col) => (
                     <TableCell
                       key={col.key}

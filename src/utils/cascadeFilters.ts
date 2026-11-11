@@ -21,7 +21,25 @@ export function getCascadedOptions(
 
   const academicYears: FilterOption[] = specializationId
     ? all.academicYears.filter((item) => item.specializationId === specializationId)
-    : [];
+    : courseId
+      ? (() => {
+          const specIds = new Set(
+            all.specializations
+              .filter((item) => item.courseId === courseId)
+              .map((item) => item.id)
+          );
+          const seen = new Set<string>();
+          return all.academicYears.filter((item) => {
+            if (item.specializationId == null || !specIds.has(item.specializationId)) {
+              return false;
+            }
+            const key = String(item.id);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        })()
+      : [];
 
   const courseYears: FilterOption[] = academicYearId
     ? all.courseYears.filter((item) => item.academicYearId === academicYearId)
@@ -144,7 +162,6 @@ export function pruneAttendanceFilters(
     academicYear: string;
     courseYear: string;
     classroom: string;
-    schedule: string;
     present: "" | "true" | "false";
     today: boolean;
   }
@@ -160,19 +177,12 @@ export function pruneAttendanceFilters(
   if (classroom && !cascaded.classrooms.some((c) => String(c.id) === classroom)) {
     classroom = "";
   }
-  const cascadeChanged =
-    pruned.course !== next.course ||
-    pruned.specialization !== next.specialization ||
-    pruned.academicYear !== next.academicYear ||
-    pruned.courseYear !== next.courseYear ||
-    classroom !== next.classroom;
   return {
     course: pruned.course,
     specialization: pruned.specialization,
     academicYear: pruned.academicYear,
     courseYear: pruned.courseYear,
     classroom,
-    schedule: cascadeChanged ? "" : next.schedule,
     present: next.present,
     today: next.today,
   };

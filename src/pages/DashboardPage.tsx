@@ -1,23 +1,26 @@
-import { Box, Grid, Paper, Tooltip, Typography } from "@mui/material";
+import { Box, Grid, Paper, Typography } from "@mui/material";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import HomeWorkRoundedIcon from "@mui/icons-material/HomeWorkRounded";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { LineChart } from "@mui/x-charts/LineChart";
+import { ScatterChart } from "@mui/x-charts/ScatterChart";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ViewStudentButton from "@/components/ViewStudentButton";
 import {
-  fetchAttendances,
   fetchFees,
   fetchHostelOverview,
   fetchOverview,
+  fetchStudents,
   fetchStudentStats,
   type FeeSummary,
   type HostelOverviewStats,
   type OverviewStats,
+  type StudentItem,
   type StudentStats,
 } from "@/api/adminPortal";
+import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
@@ -70,36 +73,46 @@ const chartAxisSx = {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
+  const selectedCourseId = useAuthStore((s) => s.selectedCourseId);
+  const courses = useAuthStore((s) => s.courses);
+  const selectedCourseName =
+    courses.find((c) => c.id === selectedCourseId)?.name || "Selected course";
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [studentStats, setStudentStats] = useState<StudentStats | null>(null);
   const [hostelStats, setHostelStats] = useState<HostelOverviewStats | null>(null);
   const [feeSummary, setFeeSummary] = useState<FeeSummary | null>(null);
   const [feeTotal, setFeeTotal] = useState(0);
-  const [present, setPresent] = useState(0);
-  const [absent, setAbsent] = useState(0);
+  const [studentRows, setStudentRows] = useState<StudentItem[]>([]);
+  const [studentTotal, setStudentTotal] = useState(0);
+  const [studentPage, setStudentPage] = useState(1);
+  const [studentPageSize, setStudentPageSize] = useState<PageSizeOption>(50);
+  const [studentPageCount, setStudentPageCount] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(true);
 
   useEffect(() => {
+    setStudentPage(1);
+  }, [selectedBranchId, selectedCourseId]);
+
+  useEffect(() => {
+    if (selectedBranchId == null || selectedCourseId == null) return;
     let active = true;
 
     async function load() {
       setLoading(true);
       try {
-        const [overview, students, fees, hostel, attendance] = await Promise.all([
-          fetchOverview(selectedBranchId),
-          fetchStudentStats({ branch: selectedBranchId }),
+        const course = String(selectedCourseId);
+        const [overview, students, fees, hostel] = await Promise.all([
+          fetchOverview(selectedBranchId, selectedCourseId),
+          fetchStudentStats({ branch: selectedBranchId, course }),
           fetchFees({
             branch: selectedBranchId,
+            course,
             kind: "total",
             page: 1,
             pageSize: 50,
           }),
-          fetchHostelOverview(selectedBranchId),
-          fetchAttendances({
-            branch: selectedBranchId,
-            page: 1,
-            pageSize: 50,
-          }),
+          fetchHostelOverview(selectedBranchId, { course }),
         ]);
         if (active) {
           setStats(overview);
@@ -107,8 +120,6 @@ export default function DashboardPage() {
           setFeeSummary(fees.summary || null);
           setFeeTotal(Number(fees.totalAmount) || 0);
           setHostelStats(hostel);
-          setPresent(attendance.present || 0);
-          setAbsent(attendance.absent || 0);
         }
       } catch (err: any) {
         if (active) {
@@ -123,7 +134,77 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [selectedBranchId]);
+  }, [selectedBranchId, selectedCourseId]);
+
+  useEffect(() => {
+    if (selectedBranchId == null || selectedCourseId == null) return;
+    let active = true;
+
+    async function loadStudents() {
+      setTableLoading(true);
+      try {
+        const data = await fetchStudents({
+          branch: selectedBranchId,
+          course: String(selectedCourseId),
+          page: studentPage,
+          pageSize: studentPageSize,
+        });
+        if (active) {
+          setStudentRows(data.items || []);
+          setStudentTotal(data.total || 0);
+          setStudentPageCount(data.pageCount || 1);
+          if (data.page && data.page !== studentPage) setStudentPage(data.page);
+        }
+      } catch (err: unknown) {
+        if (active) toastError(err, "Could not load students.");
+      } finally {
+        if (active) setTableLoading(false);
+      }
+    }
+
+    loadStudents();
+    return () => {
+      active = false;
+    };
+  }, [selectedBranchId, selectedCourseId, studentPage, studentPageSize]);
+
+  const studentColumns: Column<StudentItem>[] = [
+    {
+      key: "roll",
+      label: "Roll No",
+      render: (r) => r.rollNumber,
+      getValue: (r) => r.rollNumber,
+    },
+    {
+      key: "name",
+      label: "Student Name",
+      render: (r) => r.name,
+      getValue: (r) => r.name,
+      minWidth: 140,
+    },
+    {
+      key: "academicYear",
+      label: "Academic Year",
+      render: (r) => r.academicYear,
+      getValue: (r) => r.academicYear,
+    },
+    {
+      key: "courseYear",
+      label: "Year",
+      render: (r) => r.courseYear,
+      getValue: (r) => r.courseYear,
+    },
+    {
+      key: "view",
+      label: "Action",
+      searchable: false,
+      sortable: false,
+      align: "right",
+      render: (r) => <ViewStudentButton studentId={r.id} />,
+      getValue: () => "",
+      minWidth: 72,
+    },
+  ];
 
   const studentLineData = useMemo(() => {
     const rows = [...(studentStats?.byAcademicYear || [])].sort((a, b) => {
@@ -136,19 +217,6 @@ export default function DashboardPage() {
     });
     return {
       labels: rows.map((r) => r.label),
-      values: rows.map((r) => r.value),
-    };
-  }, [studentStats]);
-
-  const courseBarData = useMemo(() => {
-    const rows = studentStats?.byCourse || [];
-    const fullLabels = rows.map((r) => String(r.label || "").trim());
-    const labels = fullLabels.map((name) =>
-      name.length <= 18 ? name : `${name.slice(0, 18).trimEnd()}…`
-    );
-    return {
-      labels,
-      fullLabels,
       values: rows.map((r) => r.value),
     };
   }, [studentStats]);
@@ -167,90 +235,84 @@ export default function DashboardPage() {
     };
   }, [feeSummary]);
 
-  const hostelChartData = useMemo(() => {
+  const feePaidUnpaidChart = useMemo(
+    () => ({
+      labels: ["Paid", "Unpaid"],
+      values: [Number(feeSummary?.paidCount) || 0, Number(feeSummary?.unpaidCount) || 0],
+    }),
+    [feeSummary]
+  );
+
+  // Hostel and room counts without demographic breakdowns.
+  const hostelScatterData = useMemo(() => {
+    const points = [
+      { id: 0, x: 0, y: hostelStats?.totalHostelStudents || 0, label: "In hostel" },
+      { id: 1, x: 1, y: hostelStats?.occupiedRooms || 0, label: "Occupied rooms" },
+      { id: 2, x: 2, y: hostelStats?.vacantRooms || 0, label: "Vacant rooms" },
+    ];
     return {
-      labels: ["Vacant", "Occupied", "Partial", "Blocked", "Mens", "Women"],
-      values: [
-        hostelStats?.vacantRooms || 0,
-        hostelStats?.occupiedRooms || 0,
-        hostelStats?.partialOccupiedRooms || 0,
-        hostelStats?.blockedRooms || 0,
-        hostelStats?.mensHostelStudents || 0,
-        hostelStats?.womenHostelStudents || 0,
-      ],
+      labels: points.map((p) => p.label),
+      points: points.map(({ id, x, y }) => ({ id, x, y })),
     };
   }, [hostelStats]);
-
-  const attendanceChartData = useMemo(
-    () => ({
-      labels: ["Present", "Absent"],
-      values: [present, absent],
-    }),
-    [present, absent]
-  );
 
   if (loading) {
     return (
       <Box>
-        <PageHeader subtitle="Student life cycle — tap a card to open students, fees, hostel, or attendance." />
-        <PageSkeleton cards={4} charts={4} wideChart table={false} />
+        <PageHeader
+          subtitle={`${selectedCourseName} — students & hostel for this course.`}
+        />
+        <PageSkeleton cards={2} charts={2} table />
       </Box>
     );
   }
 
   return (
     <Box>
-      <PageHeader subtitle="Student life cycle — tap a card to open students, fees, hostel, or attendance." />
+      <PageHeader
+        subtitle={`${selectedCourseName} — students & hostel for this course.`}
+      />
 
-      {/* 4 cards in one row */}
+      {/* Fees card is temporarily hidden; show Students and Hostel only. */}
       <Grid container spacing={{ xs: 1.75, sm: 2, md: 2.5 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6}>
           <StatCard
-            title="Total Students"
-            value={formatNumber(stats?.totalStudents || 0)}
-            subtitle="Open students"
+            title="Students"
+            value={formatNumber(stats?.totalStudents || studentStats?.totalStudents || 0)}
+            subtitle={`${selectedCourseName} · Open list`}
             accent="#0B2C34"
             icon={<GroupsRoundedIcon />}
             onClick={() => navigate("/students")}
             delay={0}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        {false && (
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
+              title="Fees"
+              value={formatCompactCurrency(feeTotal)}
+              subtitle={`${selectedCourseName} · Collected`}
+              accent="#3A6B85"
+              icon={<PaymentsRoundedIcon />}
+              onClick={() => navigate("/fees")}
+              delay={40}
+            />
+          </Grid>
+        )}
+        <Grid item xs={12} sm={6}>
           <StatCard
-            title="Fees"
-            value={formatCompactCurrency(feeTotal)}
-            subtitle={`${formatNumber(feeTotal)} · Open fee report`}
-            accent="#3A6B85"
-            icon={<PaymentsRoundedIcon />}
-            onClick={() => navigate("/fees")}
-            delay={40}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Hostel"
-            value={formatNumber(stats?.totalHostels || 0)}
-            subtitle="Open hostel"
+            title="Hostel students"
+            value={formatNumber(hostelStats?.totalHostelStudents || 0)}
+            subtitle={`${selectedCourseName} · In hostel`}
             accent="#8B4A6B"
             icon={<HomeWorkRoundedIcon />}
             onClick={() => navigate("/hostel")}
             delay={80}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Total Attendance"
-            value={formatNumber(stats?.totalAttendances || 0)}
-            subtitle="Open attendance"
-            accent="#1A7A6D"
-            icon={<FactCheckRoundedIcon />}
-            onClick={() => navigate("/attendance")}
-            delay={120}
-          />
-        </Grid>
       </Grid>
 
-      {/* 4 charts — one per card */}
+      {/* Charts */}
       <Box sx={{ mt: { xs: 3, sm: 3.5, md: 4 } }}>
         <Grid container spacing={{ xs: 1.75, sm: 2, md: 2.5 }}>
           <Grid item xs={12} md={6}>
@@ -266,7 +328,7 @@ export default function DashboardPage() {
                 color="text.secondary"
                 sx={{ display: "block", mb: 1.5 }}
               >
-                Year-wise student count
+                {selectedCourseName} · academic year
               </Typography>
               {studentLineData.labels.length === 0 ? (
                 <Box height={260} display="flex" alignItems="center" justifyContent="center">
@@ -304,46 +366,31 @@ export default function DashboardPage() {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Paper elevation={0} sx={{ ...chartPaperSx, animation: "fadeUp 0.5s ease 160ms both" }}>
-              <Typography
-                variant="h6"
-                sx={{ mb: 0.5, fontWeight: 600, fontSize: { xs: 16, md: 18 } }}
-              >
-                Fees breakdown
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", mb: 1.5 }}
-              >
-                Online / offline / advance / demand / adjust
-              </Typography>
-              <BarChart
-                height={260}
-                series={[
-                  {
-                    data: feeChartData.values,
-                    label: "Amount",
-                    color: "#3A6B85",
-                    valueFormatter: (v) => formatCompactCurrency(v || 0),
-                  },
-                ]}
-                xAxis={[
-                  {
-                    data: feeChartData.labels,
-                    scaleType: "band",
-                    tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" },
-                  },
-                ]}
-                yAxis={[{ tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } }]}
-                slotProps={{ legend: { hidden: true } }}
-                borderRadius={4}
-                grid={{ horizontal: true }}
-                sx={chartAxisSx}
-              />
-            </Paper>
-          </Grid>
+          {/* Fee breakdown and paid/unpaid charts are temporarily hidden. */}
+          {false && (
+            <>
+              <Grid item xs={12} md={6}>
+                <Paper elevation={0} sx={{ ...chartPaperSx, animation: "fadeUp 0.5s ease 160ms both" }}>
+                  <Typography variant="h6">Fees breakdown</Typography>
+                  <BarChart
+                    height={260}
+                    series={[{ data: feeChartData.values, label: "Amount" }]}
+                    xAxis={[{ data: feeChartData.labels, scaleType: "band" }]}
+                  />
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper elevation={0} sx={{ ...chartPaperSx, animation: "fadeUp 0.5s ease 180ms both" }}>
+                  <Typography variant="h6">Fee paid vs unpaid</Typography>
+                  <BarChart
+                    height={260}
+                    series={[{ data: feePaidUnpaidChart.values, label: "Fees" }]}
+                    xAxis={[{ data: feePaidUnpaidChart.labels, scaleType: "band" }]}
+                  />
+                </Paper>
+              </Grid>
+            </>
+          )}
 
           <Grid item xs={12} md={6}>
             <Paper elevation={0} sx={{ ...chartPaperSx, animation: "fadeUp 0.5s ease 200ms both" }}>
@@ -351,177 +398,105 @@ export default function DashboardPage() {
                 variant="h6"
                 sx={{ mb: 0.5, fontWeight: 600, fontSize: { xs: 16, md: 18 } }}
               >
-                Hostel overview
+                Hostel students
               </Typography>
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{ display: "block", mb: 1.5 }}
               >
-                Rooms & hostel students
+                {selectedCourseName} · hostel and room summary
               </Typography>
-              <BarChart
+              <ScatterChart
                 height={260}
                 series={[
                   {
-                    data: hostelChartData.values,
-                    label: "Count",
+                    data: hostelScatterData.points,
+                    label: "Students",
                     color: "#8B4A6B",
-                    valueFormatter: (v) => formatNumber(v || 0),
+                    markerSize: 10,
+                    valueFormatter: ({ x, y }) =>
+                      `${hostelScatterData.labels[Number(x)] || "—"}: ${formatNumber(y)}`,
                   },
                 ]}
                 xAxis={[
                   {
-                    data: hostelChartData.labels,
-                    scaleType: "band",
+                    min: -0.5,
+                    max: 2.5,
+                    tickNumber: 3,
+                    valueFormatter: (v) => hostelScatterData.labels[Number(v)] || "",
                     tickLabelStyle: { fontSize: 10, fontFamily: "Josefin Sans" },
                   },
                 ]}
                 yAxis={[{ tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } }]}
-                slotProps={{ legend: { hidden: true } }}
-                borderRadius={4}
-                grid={{ horizontal: true }}
+                grid={{ horizontal: true, vertical: true }}
                 sx={chartAxisSx}
               />
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Paper elevation={0} sx={{ ...chartPaperSx, animation: "fadeUp 0.5s ease 240ms both" }}>
-              <Typography
-                variant="h6"
-                sx={{ mb: 0.5, fontWeight: 600, fontSize: { xs: 16, md: 18 } }}
-              >
-                Attendance — present vs absent
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", mb: 1.5 }}
-              >
-                Student attendance marks
-              </Typography>
-              <BarChart
-                height={260}
-                series={[
-                  {
-                    data: attendanceChartData.values,
-                    label: "Count",
-                    color: "#1A7A6D",
-                    valueFormatter: (v) => formatNumber(v || 0),
-                  },
-                ]}
-                xAxis={[
-                  {
-                    data: attendanceChartData.labels,
-                    scaleType: "band",
-                    tickLabelStyle: { fontSize: 12, fontFamily: "Josefin Sans" },
-                  },
-                ]}
-                yAxis={[{ tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } }]}
-                slotProps={{ legend: { hidden: true } }}
-                borderRadius={4}
-                grid={{ horizontal: true }}
-                sx={chartAxisSx}
-              />
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Paper elevation={0} sx={{ ...chartPaperSx, animation: "fadeUp 0.5s ease 280ms both" }}>
-              <Typography
-                variant="h6"
-                sx={{ mb: 0.5, fontWeight: 600, fontSize: { xs: 16, md: 18 } }}
-              >
-                Students by course
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", mb: 1.5 }}
-              >
-                Course-wise student count
-              </Typography>
-              {courseBarData.labels.length === 0 ? (
-                <Box height={320} display="flex" alignItems="center" justifyContent="center">
-                  <Typography color="text.secondary">No course data yet</Typography>
-                </Box>
-              ) : (
-                <Box sx={{ display: "flex", alignItems: "stretch", minHeight: 320 }}>
-                  <Box
-                    sx={{
-                      width: 100,
-                      flexShrink: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-around",
-                      py: "16px",
-                      pb: "30px",
-                      pr: 0.5,
-                    }}
-                  >
-                    {courseBarData.fullLabels.map((full, index) => (
-                      <Tooltip key={`${full}-${index}`} title={full} placement="right" arrow>
-                        <Typography
-                          noWrap
-                          sx={{
-                            fontSize: 11,
-                            fontFamily: '"Josefin Sans", sans-serif',
-                            fontWeight: 500,
-                            color: "text.primary",
-                            textAlign: "right",
-                            lineHeight: 1.2,
-                            cursor: "default",
-                            maxWidth: "100%",
-                          }}
-                        >
-                          {courseBarData.labels[index]}
-                        </Typography>
-                      </Tooltip>
-                    ))}
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <BarChart
-                      height={Math.max(320, courseBarData.labels.length * 28)}
-                      layout="horizontal"
-                      margin={{ left: 8, right: 16, top: 16, bottom: 30 }}
-                      series={[
-                        {
-                          data: courseBarData.values,
-                          label: "Students",
-                          color: "#C45C3A",
-                          valueFormatter: (value) => formatNumber(value || 0),
-                        },
-                      ]}
-                      yAxis={[
-                        {
-                          data: courseBarData.fullLabels,
-                          scaleType: "band",
-                          tickLabelStyle: { fontSize: 0 },
-                          disableLine: true,
-                          disableTicks: true,
-                          valueFormatter: (v) => String(v ?? ""),
-                        },
-                      ]}
-                      xAxis={[
-                        { tickLabelStyle: { fontSize: 11, fontFamily: "Josefin Sans" } },
-                      ]}
-                      slotProps={{ legend: { hidden: true } }}
-                      borderRadius={4}
-                      grid={{ vertical: true }}
-                      sx={{
-                        ...chartAxisSx,
-                        "& .MuiChartsAxis-left .MuiChartsAxis-tickLabel": {
-                          display: "none",
-                        },
-                      }}
-                    />
-                  </Box>
-                </Box>
-              )}
-            </Paper>
-          </Grid>
         </Grid>
+      </Box>
+
+      <Box sx={{ mt: { xs: 3, sm: 3.5, md: 4 } }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 2,
+            mb: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: 16, md: 18 } }}>
+              {selectedCourseName} students
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {formatNumber(studentTotal)} students for the selected course
+            </Typography>
+          </Box>
+          <Typography
+            component="button"
+            onClick={() => navigate("/students")}
+            sx={{
+              border: 0,
+              background: "none",
+              cursor: "pointer",
+              color: "primary.main",
+              fontWeight: 600,
+              fontSize: 13,
+              fontFamily: "inherit",
+              p: 0,
+              "&:hover": { textDecoration: "underline" },
+            }}
+          >
+            Open full list →
+          </Typography>
+        </Box>
+        {tableLoading ? (
+          <PageSkeleton cards={0} table />
+        ) : (
+          <DataTableCard
+            columns={studentColumns}
+            rows={studentRows}
+            rowKey={(r) => r.id}
+            searchPlaceholder="Search roll, name…"
+            emptyText="No students for this course"
+            pagination={{
+              page: studentPage,
+              pageSize: studentPageSize,
+              total: studentTotal,
+              pageCount: studentPageCount,
+              onPageChange: setStudentPage,
+              onPageSizeChange: (size) => {
+                setStudentPageSize(size);
+                setStudentPage(1);
+              },
+            }}
+          />
+        )}
       </Box>
     </Box>
   );

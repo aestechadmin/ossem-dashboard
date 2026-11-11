@@ -6,7 +6,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Chip,
 } from "@mui/material";
 import HowToRegRoundedIcon from "@mui/icons-material/HowToRegRounded";
 import TodayRoundedIcon from "@mui/icons-material/TodayRounded";
@@ -23,7 +22,8 @@ import DataTableCard, { type Column, type PageSizeOption } from "@/components/Da
 import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
-import { useAuthStore } from "@/store/authStore";
+import { useAutoSpecialization } from "@/hooks/useAutoSpecialization";
+import { useSelectedCourse } from "@/hooks/useSelectedCourse";
 import { useFilterStore } from "@/store/filterStore";
 import { toastError } from "@/store/toastStore";
 import { getCascadedOptions, pruneAdmissionFilters } from "@/utils/cascadeFilters";
@@ -37,7 +37,7 @@ const emptyFilters: PortalFilters = {
 };
 
 export default function AdmissionsPage() {
-  const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
+  const { selectedBranchId, courseKey, courseName } = useSelectedCourse();
   const filters = useFilterStore((s) => s.admissions);
   const setAdmissionFilters = useFilterStore((s) => s.setAdmissionFilters);
 
@@ -55,11 +55,11 @@ export default function AdmissionsPage() {
   const options = useMemo(
     () =>
       getCascadedOptions(allOptions, {
-        course: filters.course,
+        course: courseKey,
         specialization: filters.specialization,
         academicYear: filters.academicYear,
       }),
-    [allOptions, filters.course, filters.specialization, filters.academicYear]
+    [allOptions, courseKey, filters.specialization, filters.academicYear]
   );
 
   useEffect(() => {
@@ -73,15 +73,23 @@ export default function AdmissionsPage() {
     setPage(1);
     setAdmissionFilters(
       pruneAdmissionFilters(allOptions, {
-        course: filters.course,
         specialization: filters.specialization,
         academicYear: filters.academicYear,
         ...patch,
+        course: courseKey,
       })
     );
   }
 
+  useAutoSpecialization(
+    courseKey,
+    options.specializations,
+    filters.specialization,
+    (id) => applyAdmissionFilters({ specialization: id })
+  );
+
   useEffect(() => {
+    if (selectedBranchId == null || !courseKey) return;
     let active = true;
 
     async function load() {
@@ -89,7 +97,7 @@ export default function AdmissionsPage() {
       try {
         const data = await fetchAdmissions({
           branch: selectedBranchId,
-          course: filters.course || undefined,
+          course: courseKey,
           specialization: filters.specialization || undefined,
           academicYear: filters.academicYear || undefined,
           page,
@@ -119,53 +127,62 @@ export default function AdmissionsPage() {
     };
   }, [
     selectedBranchId,
-    filters.course,
+    courseKey,
     filters.specialization,
     filters.academicYear,
     page,
     pageSize,
   ]);
 
-  const columns: Column<AdmissionItem>[] = [
-    {
-      key: "name",
-      label: "Student",
-      render: (r) => r.name,
-      getValue: (r) => r.name,
-      minWidth: 160,
-    },
-    { key: "mobile", label: "Mobile", render: (r) => r.mobile, getValue: (r) => r.mobile },
-    { key: "course", label: "Course", render: (r) => r.course, getValue: (r) => r.course },
-    {
-      key: "specialization",
-      label: "Specialization",
-      render: (r) => r.specialization,
-      getValue: (r) => r.specialization,
-    },
-    {
-      key: "academicYear",
-      label: "Academic Year",
-      render: (r) => r.academicYear,
-      getValue: (r) => r.academicYear,
-    },
-    {
-      key: "date",
-      label: "Admitted",
-      render: (r) => (r.dateOfAdmission ? String(r.dateOfAdmission).slice(0, 10) : "—"),
-      getValue: (r) => (r.dateOfAdmission ? String(r.dateOfAdmission).slice(0, 10) : ""),
-    },
-    {
-      key: "gender",
-      label: "Gender",
-      render: (r) =>
-        r.gender ? <Chip size="small" label={r.gender} sx={{ height: 22, fontSize: 11 }} /> : "—",
-      getValue: (r) => r.gender,
-    },
-  ];
+  const columns: Column<AdmissionItem>[] = useMemo(() => {
+    const cols: Column<AdmissionItem>[] = [
+      {
+        key: "name",
+        label: "Student Name",
+        render: (r) => r.name,
+        getValue: (r) => r.name,
+        minWidth: 160,
+      },
+      { key: "mobile", label: "Mobile", render: (r) => r.mobile, getValue: (r) => r.mobile },
+    ];
+    if (!courseKey) {
+      cols.push({
+        key: "course",
+        label: "Course",
+        render: (r) => r.course,
+        getValue: (r) => r.course,
+      });
+    }
+    if (!filters.specialization) {
+      cols.push({
+        key: "specialization",
+        label: "Specialization",
+        render: (r) => r.specialization,
+        getValue: (r) => r.specialization,
+      });
+    }
+    if (!filters.academicYear) {
+      cols.push({
+        key: "academicYear",
+        label: "Academic Year",
+        render: (r) => r.academicYear,
+        getValue: (r) => r.academicYear,
+      });
+    }
+    cols.push({
+        key: "date",
+        label: "Admitted",
+        render: (r) => (r.dateOfAdmission ? String(r.dateOfAdmission).slice(0, 10) : "—"),
+        getValue: (r) => (r.dateOfAdmission ? String(r.dateOfAdmission).slice(0, 10) : ""),
+      });
+    return cols;
+  }, [courseKey, filters.specialization, filters.academicYear]);
 
   return (
     <Box>
-      <PageHeader subtitle="Filter and browse admission records for the selected branch." />
+      <PageHeader
+        subtitle={`${courseName} — filter by specialization and academic year.`}
+      />
 
       <Paper
         elevation={0}
@@ -180,25 +197,8 @@ export default function AdmissionsPage() {
         }}
       >
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={4}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Course</InputLabel>
-              <Select
-                label="Course"
-                value={filters.course}
-                onChange={(e) => applyAdmissionFilters({ course: e.target.value })}
-              >
-                <MenuItem value="">All</MenuItem>
-                {options.courses.map((item) => (
-                  <MenuItem key={item.id} value={String(item.id)}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <FormControl fullWidth size="small" disabled={!filters.course}>
+          <Grid item xs={12} sm={6} md={6}>
+            <FormControl fullWidth size="small" disabled={!courseKey}>
               <InputLabel>Specialization</InputLabel>
               <Select
                 label="Specialization"
@@ -214,7 +214,7 @@ export default function AdmissionsPage() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={6}>
             <FormControl fullWidth size="small" disabled={!filters.specialization}>
               <InputLabel>Academic Year</InputLabel>
               <Select

@@ -21,7 +21,9 @@ import HostelListPage from "@/pages/HostelListPage";
 import HostelPage from "@/pages/HostelPage";
 import LoginPage from "@/pages/LoginPage";
 import OtpPage from "@/pages/OtpPage";
+import StudentDetailPage from "@/pages/StudentDetailPage";
 import StudentsPage from "@/pages/StudentsPage";
+import ScrollToTop from "@/components/ScrollToTop";
 import ToastHost from "@/components/ToastHost";
 import { checkAdminPortalSession } from "@/api/session";
 import { useAuthStore } from "@/store/authStore";
@@ -80,6 +82,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ToastHost />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -95,6 +98,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           {/* Student life-cycle routes */}
           <Route path="students" element={<StudentsPage />} />
+          <Route path="students/:id" element={<StudentDetailPage />} />
           <Route path="fees" element={<FeesPage />} />
           <Route path="hostel" element={<HostelPage />} />
           <Route path="hostel/:kind" element={<HostelListPage />} />

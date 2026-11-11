@@ -28,7 +28,6 @@ type AttendanceFilters = {
   academicYear: string;
   courseYear: string;
   classroom: string;
-  schedule: string;
   present: "" | "true" | "false";
   today: boolean;
 };
@@ -75,7 +74,6 @@ const emptyAttendance: AttendanceFilters = {
   academicYear: "",
   courseYear: "",
   classroom: "",
-  schedule: "",
   present: "",
   today: false,
 };

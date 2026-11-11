@@ -10,14 +10,13 @@ import {
   Select,
   Switch,
 } from "@mui/material";
-// import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
-// import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
+import PercentRoundedIcon from "@mui/icons-material/PercentRounded";
+import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import { useEffect, useMemo, useState } from "react";
-// import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  fetchAttendanceSchedules,
   fetchAttendances,
   fetchFilters,
   type AttendanceItem,
@@ -27,7 +26,8 @@ import DataTableCard, { type Column, type PageSizeOption } from "@/components/Da
 import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
-import { useAuthStore } from "@/store/authStore";
+import ViewStudentButton from "@/components/ViewStudentButton";
+import { useSelectedCourse } from "@/hooks/useSelectedCourse";
 import { useFilterStore } from "@/store/filterStore";
 import { toastError } from "@/store/toastStore";
 import { getCascadedOptions, pruneAttendanceFilters } from "@/utils/cascadeFilters";
@@ -79,23 +79,20 @@ function formatScheduleTime(inTime: string | null, outTime: string | null) {
 }
 
 export default function AttendancePage() {
-  // const navigate = useNavigate();
-  const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const studentId = searchParams.get("student") || "";
+  const { selectedBranchId, courseKey, courseName } = useSelectedCourse();
   const filters = useFilterStore((s) => s.attendance);
   const setAttendanceFilters = useFilterStore((s) => s.setAttendanceFilters);
 
   const [allOptions, setAllOptions] = useState<PortalFilters>(emptyFilters);
-  const [scheduleOptions, setScheduleOptions] = useState<
-    Array<{ id: number; label: string }>
-  >([]);
   const [items, setItems] = useState<AttendanceItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [listTotal, setListTotal] = useState(0);
-  const [present, setPresent] = useState(0);
-  const [absent, setAbsent] = useState(0);
-  const [scheduleTotal, setScheduleTotal] = useState(0);
-  void total;
-  void scheduleTotal;
+  const [presentStudents, setPresentStudents] = useState(0);
+  const [absentStudents, setAbsentStudents] = useState(0);
+  const [presentRate, setPresentRate] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSizeOption>(50);
   const [pageCount, setPageCount] = useState(1);
@@ -104,80 +101,53 @@ export default function AttendancePage() {
   const options = useMemo(
     () =>
       getCascadedOptions(allOptions, {
-        course: filters.course,
-        specialization: filters.specialization,
+        course: courseKey,
+        specialization: "",
         academicYear: filters.academicYear,
       }),
-    [allOptions, filters.course, filters.specialization, filters.academicYear]
+    [allOptions, courseKey, filters.academicYear]
   );
 
   useEffect(() => {
     setPage(1);
     fetchFilters(selectedBranchId)
-      .then(setAllOptions)
+      .then((opts) => {
+        setAllOptions(opts);
+        setAttendanceFilters(
+          pruneAttendanceFilters(opts, {
+            course: courseKey,
+            specialization: "",
+            academicYear: filters.academicYear,
+            courseYear: filters.courseYear || "",
+            classroom: filters.classroom || "",
+            present: filters.present,
+            today: filters.today,
+          })
+        );
+      })
       .catch(() => setAllOptions(emptyFilters));
-  }, [selectedBranchId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prune when branch/course options change
+  }, [selectedBranchId, courseKey, setAttendanceFilters]);
 
   function applyAttendanceFilters(patch: Partial<typeof filters>) {
     setPage(1);
     setAttendanceFilters(
       pruneAttendanceFilters(allOptions, {
-        course: filters.course,
-        specialization: filters.specialization,
         academicYear: filters.academicYear,
         courseYear: filters.courseYear || "",
         classroom: filters.classroom || "",
-        schedule: filters.schedule,
         present: filters.present,
         today: filters.today,
         ...patch,
+        specialization: "",
+        course: courseKey,
       })
     );
   }
 
   useEffect(() => {
-    let active = true;
-    fetchAttendanceSchedules({
-      branch: selectedBranchId,
-      course: filters.course || undefined,
-      specialization: filters.specialization || undefined,
-      academicYear: filters.academicYear || undefined,
-      courseYear: filters.courseYear || undefined,
-      classroom: filters.classroom || undefined,
-      today: filters.today,
-    })
-      .then((data) => {
-        if (!active) return;
-        setScheduleOptions(data.items.map((s) => ({ id: s.id, label: s.label })));
-        setScheduleTotal(data.total);
-        if (
-          filters.schedule &&
-          !data.items.some((s) => String(s.id) === filters.schedule)
-        ) {
-          setAttendanceFilters({ schedule: "" });
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-        setScheduleOptions([]);
-        setScheduleTotal(0);
-      });
-    return () => {
-      active = false;
-    };
-  }, [
-    selectedBranchId,
-    filters.course,
-    filters.specialization,
-    filters.academicYear,
-    filters.courseYear,
-    filters.classroom,
-    filters.today,
-    filters.schedule,
-    setAttendanceFilters,
-  ]);
-
-  useEffect(() => {
+    if (selectedBranchId == null) return;
+    if (!studentId && !courseKey) return;
     let active = true;
 
     async function load() {
@@ -185,12 +155,11 @@ export default function AttendancePage() {
       try {
         const data = await fetchAttendances({
           branch: selectedBranchId,
-          course: filters.course || undefined,
-          specialization: filters.specialization || undefined,
-          academicYear: filters.academicYear || undefined,
-          courseYear: filters.courseYear || undefined,
-          classroom: filters.classroom || undefined,
-          schedule: filters.schedule || undefined,
+          course: studentId ? undefined : courseKey,
+          academicYear: studentId ? undefined : filters.academicYear || undefined,
+          courseYear: studentId ? undefined : filters.courseYear || undefined,
+          classroom: studentId ? undefined : filters.classroom || undefined,
+          student: studentId || undefined,
           present: filters.present || undefined,
           today: filters.today,
           page,
@@ -198,10 +167,19 @@ export default function AttendancePage() {
         });
         if (active) {
           setItems(data.items);
-          setTotal(data.total);
+          setTotalRecords(data.totalRecords ?? data.total);
           setListTotal(data.listTotal ?? data.total);
-          setPresent(data.present);
-          setAbsent(data.absent);
+          setPresentStudents(data.presentStudents ?? data.present);
+          setAbsentStudents(data.absentStudents ?? data.absent);
+          setPresentRate(
+            typeof data.presentRate === "number"
+              ? data.presentRate
+              : data.totalRecords || data.total
+                ? Math.round(
+                    ((data.presentRecords || 0) / (data.totalRecords || data.total)) * 1000
+                  ) / 10
+                : 0
+          );
           setPageCount(data.pageCount || 1);
           if (data.page && data.page !== page) setPage(data.page);
         }
@@ -220,95 +198,135 @@ export default function AttendancePage() {
     };
   }, [
     selectedBranchId,
-    filters.course,
-    filters.specialization,
+    courseKey,
+    studentId,
     filters.academicYear,
     filters.courseYear,
     filters.classroom,
-    filters.schedule,
     filters.present,
     filters.today,
     page,
     pageSize,
   ]);
 
-  const columns: Column<AttendanceItem>[] = [
-    {
-      key: "student",
-      label: "Student",
-      render: (r) => r.studentName,
-      getValue: (r) => r.studentName,
-      minWidth: 140,
-    },
-    {
-      key: "roll",
-      label: "Roll No",
-      render: (r) => r.rollNumber,
-      getValue: (r) => r.rollNumber,
-    },
-    {
-      key: "date",
-      label: "Date",
-      render: (r) => formatDateTime(r.date),
-      getValue: (r) => r.date || "",
-    },
-    {
-      key: "topic",
-      label: "Schedule",
-      render: (r) => r.topic,
-      getValue: (r) => r.topic,
-      minWidth: 140,
-    },
-    {
-      key: "scheduleTime",
-      label: "Schedule Time",
-      render: (r) => formatScheduleTime(r.scheduleInTime, r.scheduleOutTime),
-      getValue: (r) => formatScheduleTime(r.scheduleInTime, r.scheduleOutTime),
-      minWidth: 120,
-    },
-    {
-      key: "subject",
-      label: "Subject",
-      render: (r) => r.subject,
-      getValue: (r) => r.subject,
-    },
-    {
-      key: "course",
-      label: "Course",
-      render: (r) => r.course,
-      getValue: (r) => r.course,
-    },
-    {
-      key: "classroom",
-      label: "Classroom",
-      render: (r) => r.classroom,
-      getValue: (r) => r.classroom,
-    },
-    {
-      key: "intime",
-      label: "In Time",
-      render: (r) => formatTimeIst(r.intime),
-      getValue: (r) => formatTimeIst(r.intime),
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (r) => (
-        <Chip
-          size="small"
-          label={r.present ? "Present" : "Absent"}
-          color={r.present ? "success" : "error"}
-          variant="outlined"
-          sx={{ height: 22, fontSize: 11, fontWeight: 600 }}
-        />
-      ),
-      getValue: (r) => (r.present ? "Present" : "Absent"),
-    },
-  ];
+  const columns: Column<AttendanceItem>[] = useMemo(() => {
+    const cols: Column<AttendanceItem>[] = [
+      {
+        key: "student",
+        label: "Student Name",
+        render: (r) => r.studentName,
+        getValue: (r) => r.studentName,
+        minWidth: 140,
+      },
+      {
+        key: "roll",
+        label: "Roll No",
+        render: (r) => r.rollNumber,
+        getValue: (r) => r.rollNumber,
+      },
+      {
+        key: "date",
+        label: "Date",
+        render: (r) => formatDateTime(r.date),
+        getValue: (r) => r.date || "",
+      },
+      {
+        key: "subject",
+        label: "Subject",
+        render: (r) => r.subject,
+        getValue: (r) => r.subject,
+        minWidth: 120,
+      },
+      {
+        key: "topic",
+        label: "Topic",
+        render: (r) => r.topic,
+        getValue: (r) => r.topic,
+        minWidth: 140,
+      },
+      {
+        key: "scheduleTime",
+        label: "Class Time",
+        render: (r) => formatScheduleTime(r.scheduleInTime, r.scheduleOutTime),
+        getValue: (r) => formatScheduleTime(r.scheduleInTime, r.scheduleOutTime),
+        minWidth: 120,
+      },
+    ];
+    if (!studentId && !courseKey) {
+      cols.push({
+        key: "course",
+        label: "Course",
+        render: (r) => r.course,
+        getValue: (r) => r.course,
+      });
+    }
+    cols.push(
+      {
+        key: "classroom",
+        label: "Classroom",
+        render: (r) => r.classroom,
+        getValue: (r) => r.classroom,
+      },
+      {
+        key: "intime",
+        label: "In Time",
+        render: (r) => formatTimeIst(r.intime),
+        getValue: (r) => formatTimeIst(r.intime),
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (r) => (
+          <Chip
+            size="small"
+            label={r.present ? "Present" : "Absent"}
+            color={r.present ? "success" : "error"}
+            variant="outlined"
+            sx={{ height: 22, fontSize: 11, fontWeight: 600 }}
+          />
+        ),
+        getValue: (r) => (r.present ? "Present" : "Absent"),
+      },
+      {
+        key: "reason",
+        label: "Reason",
+        render: (r) => r.reason || "—",
+        getValue: (r) => r.reason || "",
+        minWidth: 160,
+      },
+      {
+        key: "view",
+        label: "Action",
+        searchable: false,
+        sortable: false,
+        align: "right",
+        render: (r) => <ViewStudentButton studentId={r.studentId} section="attendance" />,
+        getValue: () => "",
+        minWidth: 72,
+      }
+    );
+    return cols;
+  }, [studentId, courseKey]);
 
   return (
     <Box>
-      <PageHeader subtitle="Filter by course, class, year, and schedule. Today only shows today’s schedules." />
+      <PageHeader
+        subtitle={
+          studentId
+            ? "Attendance marks for this student only."
+            : `${courseName} — unique students; present & absent do not overlap.`
+        }
+        action={
+          studentId ? (
+            <Chip
+              size="small"
+              color="primary"
+              label="Student filter"
+              onDelete={() => navigate("/attendance")}
+            />
+          ) : undefined
+        }
+      />
 
       <Paper
         elevation={0}
@@ -320,47 +338,12 @@ export default function AttendancePage() {
           borderRadius: 1,
           boxShadow: "0 4px 18px rgba(11,44,52,0.04)",
           animation: "fadeUp 0.4s ease both",
+          display: studentId ? "none" : undefined,
         }}
       >
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={4} lg={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Course</InputLabel>
-              <Select
-                label="Course"
-                value={filters.course}
-                onChange={(e) => applyAttendanceFilters({ course: e.target.value })}
-              >
-                <MenuItem value="">All</MenuItem>
-                {options.courses.map((item) => (
-                  <MenuItem key={item.id} value={String(item.id)}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4} lg={2}>
-            <FormControl fullWidth size="small" disabled={!filters.course}>
-              <InputLabel>Specialization</InputLabel>
-              <Select
-                label="Specialization"
-                value={filters.specialization}
-                onChange={(e) =>
-                  applyAttendanceFilters({ specialization: e.target.value })
-                }
-              >
-                <MenuItem value="">All</MenuItem>
-                {options.specializations.map((item) => (
-                  <MenuItem key={item.id} value={String(item.id)}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4} lg={2}>
-            <FormControl fullWidth size="small" disabled={!filters.specialization}>
+            <FormControl fullWidth size="small" disabled={!courseKey}>
               <InputLabel>Academic Year</InputLabel>
               <Select
                 label="Academic Year"
@@ -414,23 +397,6 @@ export default function AttendancePage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4} lg={2}>
             <FormControl fullWidth size="small">
-              <InputLabel>Schedule</InputLabel>
-              <Select
-                label="Schedule"
-                value={filters.schedule}
-                onChange={(e) => applyAttendanceFilters({ schedule: e.target.value })}
-              >
-                <MenuItem value="">All</MenuItem>
-                {scheduleOptions.map((item) => (
-                  <MenuItem key={item.id} value={String(item.id)}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4} lg={2}>
-            <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
                 label="Status"
@@ -464,50 +430,58 @@ export default function AttendancePage() {
       </Paper>
 
       <Grid container spacing={{ xs: 1.75, sm: 2 }} sx={{ mb: 2.5 }}>
-        {/* Total Attendance — replaced by Present / Absent for student life-cycle
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Total Attendance"
-            value={formatNumber(total)}
-            subtitle="Matching filters"
-            accent="#0B2C34"
-            icon={<FactCheckRoundedIcon />}
-          />
-        </Grid>
-        */}
-        <Grid item xs={12} sm={6} md={4}>
-          <StatCard
-            title="Present"
-            value={formatNumber(present)}
-            subtitle="Marked present"
+            title="Present students"
+            value={formatNumber(presentStudents)}
+            subtitle="Unique — ≥1 present mark"
             accent="#1A7A6D"
             icon={<CheckCircleRoundedIcon />}
+            selected={filters.present === "true"}
+            onClick={() =>
+              applyAttendanceFilters({
+                present: filters.present === "true" ? "" : "true",
+              })
+            }
             delay={40}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Absent"
-            value={formatNumber(absent)}
-            subtitle="Marked absent"
+            title="Absent students"
+            value={formatNumber(absentStudents)}
+            subtitle="Unique — absent only (no present)"
             accent="#C45C3A"
             icon={<CancelRoundedIcon />}
+            selected={filters.present === "false"}
+            onClick={() =>
+              applyAttendanceFilters({
+                present: filters.present === "false" ? "" : "false",
+              })
+            }
             delay={80}
           />
         </Grid>
-        {/* Academics schedules — commented with student life-cycle
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title={filters.today ? "Today Schedules" : "Schedules"}
-            value={formatNumber(scheduleTotal)}
-            subtitle={filters.today ? "Schedules for today" : "Open schedule list"}
-            accent="#8B4A6B"
-            icon={<EventNoteRoundedIcon />}
-            onClick={() => navigate("/departments/schedules")}
+            title="Present rate"
+            value={`${presentRate}%`}
+            subtitle="Of all attendance marks"
+            accent="#0B2C34"
+            icon={<PercentRoundedIcon />}
             delay={120}
           />
         </Grid>
-        */}
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Attendance marks"
+            value={formatNumber(totalRecords)}
+            subtitle="Rows in table (all schedules)"
+            accent="#5B6B7A"
+            icon={<FactCheckRoundedIcon />}
+            delay={160}
+          />
+        </Grid>
       </Grid>
 
       {loading ? (
@@ -517,7 +491,7 @@ export default function AttendancePage() {
           columns={columns}
           rows={items}
           rowKey={(r) => r.id}
-          searchPlaceholder="Search student, roll, schedule, subject…"
+          searchPlaceholder="Search student, roll, subject, topic…"
           emptyText="No attendance records found"
           pagination={{
             page,
