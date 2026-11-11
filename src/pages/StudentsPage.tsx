@@ -22,6 +22,7 @@ import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import PiePanel from "@/components/PiePanel";
 import StatCard from "@/components/StatCard";
+import StudentNameLink from "@/components/StudentNameLink";
 import ViewStudentButton from "@/components/ViewStudentButton";
 import { useSelectedCourse } from "@/hooks/useSelectedCourse";
 import { useFilterStore } from "@/store/filterStore";
@@ -171,7 +172,7 @@ export default function StudentsPage() {
       {
         key: "name",
         label: "Student Name",
-        render: (r) => r.name,
+        render: (r) => <StudentNameLink studentId={r.id} name={r.name} />,
         getValue: (r) => r.name,
         minWidth: 160,
       },

@@ -26,6 +26,7 @@ import DataTableCard, { type Column, type PageSizeOption } from "@/components/Da
 import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
+import StudentNameLink from "@/components/StudentNameLink";
 import ViewStudentButton from "@/components/ViewStudentButton";
 import { useSelectedCourse } from "@/hooks/useSelectedCourse";
 import { useFilterStore } from "@/store/filterStore";
@@ -214,7 +215,13 @@ export default function AttendancePage() {
       {
         key: "student",
         label: "Student Name",
-        render: (r) => r.studentName,
+        render: (r) => (
+          <StudentNameLink
+            studentId={r.studentId}
+            name={r.studentName}
+            section="attendance"
+          />
+        ),
         getValue: (r) => r.studentName,
         minWidth: 140,
       },

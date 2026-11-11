@@ -27,6 +27,7 @@ import DataTableCard, { type Column, type PageSizeOption } from "@/components/Da
 import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
+import StudentNameLink from "@/components/StudentNameLink";
 import ViewStudentButton from "@/components/ViewStudentButton";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
@@ -268,7 +269,17 @@ export default function HostelListPage() {
     if (isStudentsKind(listKind)) {
       const cols: Column<Record<string, unknown>>[] = [
         { key: "rollNumber", label: "Roll No", render: (r) => String(r.rollNumber || "—") },
-        { key: "name", label: "Student Name", render: (r) => String(r.name || "—") },
+        {
+          key: "name",
+          label: "Student Name",
+          render: (r) => (
+            <StudentNameLink
+              studentId={r.id as number}
+              name={String(r.name || "—")}
+              section="hostel"
+            />
+          ),
+        },
         { key: "mobile", label: "Mobile", render: (r) => String(r.mobile || "—") },
       ];
       if (!course) {

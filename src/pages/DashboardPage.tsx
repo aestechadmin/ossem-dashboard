@@ -24,6 +24,7 @@ import DataTableCard, { type Column, type PageSizeOption } from "@/components/Da
 import PageHeader from "@/components/PageHeader";
 import PageSkeleton from "@/components/PageSkeleton";
 import StatCard from "@/components/StatCard";
+import StudentNameLink from "@/components/StudentNameLink";
 import { useAuthStore } from "@/store/authStore";
 import { toastError } from "@/store/toastStore";
 
@@ -178,7 +179,7 @@ export default function DashboardPage() {
     {
       key: "name",
       label: "Student Name",
-      render: (r) => r.name,
+      render: (r) => <StudentNameLink studentId={r.id} name={r.name} />,
       getValue: (r) => r.name,
       minWidth: 140,
     },
