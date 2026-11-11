@@ -444,6 +444,11 @@ export default function HostelListPage() {
           columns={columns}
           rows={rows}
           rowKey={(r) => Number(r.id)}
+          onRowClick={
+            isStudentsKind(listKind)
+              ? (r) => navigate(`/students/${Number(r.id)}?section=hostel`)
+              : undefined
+          }
           searchPlaceholder={`Search ${meta.searchLabel}…`}
           pagination={{
             page,

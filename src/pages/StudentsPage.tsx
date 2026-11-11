@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   fetchFilters,
   fetchStudentStats,
@@ -42,6 +43,7 @@ function formatNumber(value: number) {
 }
 
 export default function StudentsPage() {
+  const navigate = useNavigate();
   const { selectedBranchId, courseKey, courseName } = useSelectedCourse();
   const filters = useFilterStore((s) => s.students);
   const setStudentFilters = useFilterStore((s) => s.setStudentFilters);
@@ -321,6 +323,7 @@ export default function StudentsPage() {
           columns={columns}
           rows={items}
           rowKey={(r) => r.id}
+          onRowClick={(r) => navigate(`/students/${r.id}`)}
           searchPlaceholder="Search student, roll no, course…"
           pagination={{
             page,

@@ -483,6 +483,7 @@ export default function DashboardPage() {
             columns={studentColumns}
             rows={studentRows}
             rowKey={(r) => r.id}
+            onRowClick={(r) => navigate(`/students/${r.id}`)}
             searchPlaceholder="Search roll, name…"
             emptyText="No students for this course"
             pagination={{

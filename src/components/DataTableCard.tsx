@@ -49,6 +49,7 @@ type DataTableCardProps<T> = {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string | number;
+  onRowClick?: (row: T) => void;
   emptyText?: string;
   searchPlaceholder?: string;
   pagination?: ServerPagination;
@@ -77,6 +78,7 @@ export default function DataTableCard<T>({
   columns,
   rows,
   rowKey,
+  onRowClick,
   emptyText = "No records found",
   searchPlaceholder = "Search…",
   pagination,
@@ -259,9 +261,23 @@ export default function DataTableCard<T>({
                 <TableRow
                   key={rowKey(row)}
                   hover
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? "link" : undefined}
                   sx={{
                     "&:last-child td": { borderBottom: 0 },
                     transition: "background-color 0.15s ease",
+                    cursor: onRowClick ? "pointer" : "default",
                   }}
                 >
                   <TableCell

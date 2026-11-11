@@ -503,6 +503,9 @@ export default function FeesPage() {
           columns={columns}
           rows={items}
           rowKey={(r) => r.id}
+          onRowClick={(r) => {
+            if (r.studentId) navigate(`/students/${r.studentId}?section=fees`);
+          }}
           searchPlaceholder={`Search ${KIND_META[kind].title.toLowerCase()}…`}
           pagination={{
             page,

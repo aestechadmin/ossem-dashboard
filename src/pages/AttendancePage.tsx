@@ -498,6 +498,9 @@ export default function AttendancePage() {
           columns={columns}
           rows={items}
           rowKey={(r) => r.id}
+          onRowClick={(r) => {
+            if (r.studentId) navigate(`/students/${r.studentId}?section=attendance`);
+          }}
           searchPlaceholder="Search student, roll, subject, topic…"
           emptyText="No attendance records found"
           pagination={{
