@@ -9,6 +9,11 @@ const api = axios.create({
   },
 });
 
+type AuthTrackedConfig = {
+  _authJwt?: string | null;
+  _authSessionId?: string | null;
+};
+
 function isSessionRevoked401(error: unknown): boolean {
   if (!error || typeof error !== "object" || !("response" in error)) return false;
   const response = (error as { response?: { status?: number; data?: unknown } }).response;
@@ -37,6 +42,9 @@ api.interceptors.request.use((config) => {
   // "Invalid credentials" when an expired/old JWT is attached.
   const isAuthLocal = /\/auth\/local/i.test(url);
   const { jwt, adminSessionId } = useAuthStore.getState();
+  const trackedConfig = config as typeof config & AuthTrackedConfig;
+  trackedConfig._authJwt = jwt;
+  trackedConfig._authSessionId = adminSessionId;
   if (jwt && !isAuthLocal) {
     config.headers.Authorization = `Bearer ${jwt}`;
   }
@@ -71,6 +79,17 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
+      const requestConfig = error.config as AuthTrackedConfig | undefined;
+      const currentAuth = useAuthStore.getState();
+      // A request from the previous session can finish after OTP login. Its 401
+      // must not clear the newly claimed session.
+      if (
+        requestConfig?._authJwt !== currentAuth.jwt ||
+        requestConfig?._authSessionId !== currentAuth.adminSessionId
+      ) {
+        return Promise.reject(error);
+      }
+
       // Any 401 while using the app means the session/JWT is dead.
       // Users don't reload — they open another menu/page, API 401s, and used
       // to stay stuck on the dashboard shell. Always clear auth + leave now.

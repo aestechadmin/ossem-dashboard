@@ -57,9 +57,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     };
   }, [hasHydrated, jwt, adminSessionId, location.pathname]);
 
-  // Before hydrate finishes, don't flash protected UI — send to login shell
+  // Wait for persisted auth before deciding. Redirecting during hydration can
+  // send a freshly verified OTP session back to /login until the next refresh.
   if (!hasHydrated) {
-    return <Navigate to="/login" replace />;
+    return null;
   }
 
   if (!jwt || isJwtExpired(jwt) || !adminSessionId) {
