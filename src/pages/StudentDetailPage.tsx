@@ -12,6 +12,7 @@ import {
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import HomeWorkRoundedIcon from "@mui/icons-material/HomeWorkRounded";
 import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
+import SavingsRoundedIcon from "@mui/icons-material/SavingsRounded";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -423,7 +424,7 @@ export default function StudentDetailPage() {
       </Box>
 
       <Grid container spacing={{ xs: 1.75, sm: 2, md: 2.5 }} sx={{ mb: 2.5 }}>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Fees"
             value={formatCompactCurrency(fees.totalAmount)}
@@ -434,15 +435,16 @@ export default function StudentDetailPage() {
             }
             accent="#3A6B85"
             icon={<PaymentsRoundedIcon />}
-            selected={section === "fees"}
+            selected={section === "fees" && feeKind !== "advance"}
             onClick={() => {
               setFeePage(1);
+              setFeeKind("all");
               setSection("fees");
             }}
             delay={0}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Hostel"
             value={hostel.allocated ? hostel.room || "Allocated" : "Not allotted"}
@@ -458,7 +460,7 @@ export default function StudentDetailPage() {
             delay={40}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Attendance"
             value={formatNumber(attendance.totalMarks)}
@@ -475,6 +477,22 @@ export default function StudentDetailPage() {
               setSection("attendance");
             }}
             delay={80}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Advance"
+            value={formatCompactCurrency(fees.summary?.advance?.amount || 0)}
+            subtitle={`${formatNumber(fees.summary?.advance?.count || 0)} payment records`}
+            accent="#C45C3A"
+            icon={<SavingsRoundedIcon />}
+            selected={section === "fees" && feeKind === "advance"}
+            onClick={() => {
+              setFeePage(1);
+              setFeeKind("advance");
+              setSection("fees");
+            }}
+            delay={120}
           />
         </Grid>
       </Grid>
