@@ -11,6 +11,7 @@ type StatCardProps = {
   onClick?: () => void;
   delay?: number;
   selected?: boolean;
+  compact?: boolean;
 };
 
 export default function StatCard({
@@ -22,6 +23,7 @@ export default function StatCard({
   onClick,
   delay = 0,
   selected = false,
+  compact = false,
 }: StatCardProps) {
   const clickable = Boolean(onClick);
 
@@ -39,8 +41,11 @@ export default function StatCard({
           : undefined
       }
       sx={{
-        p: { xs: 2, sm: 2.5, xl: 3 },
-        height: "100%",
+        p: compact ? { xs: 1, sm: 1.1 } : { xs: 2, sm: 2.5, xl: 3 },
+        height: compact ? 48 : "100%",
+        minHeight: compact ? 48 : undefined,
+        display: compact ? "flex" : undefined,
+        alignItems: compact ? "center" : undefined,
         border: "1px solid",
         borderColor: selected ? accent : "divider",
         borderRadius: 1,
@@ -81,41 +86,59 @@ export default function StatCard({
         },
       }}
     >
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={2}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems={compact ? "center" : "flex-start"}
+        gap={compact ? 1 : 2}
+        width="100%"
+      >
         <Box minWidth={0} flex={1}>
           <Typography
             variant="body2"
             color="text.secondary"
             fontWeight={500}
-            sx={{ fontSize: { xs: 12, xl: 13 } }}
+            sx={{
+              fontSize: compact ? 10 : { xs: 12, xl: 13 },
+              lineHeight: compact ? 1.15 : undefined,
+            }}
           >
             {title}
           </Typography>
           <Typography
             variant="h4"
             sx={{
-              mt: 0.75,
-              mb: 0.5,
+              mt: compact ? 0 : 0.75,
+              mb: compact ? 0 : 0.5,
               letterSpacing: "-0.02em",
-              fontSize: { xs: 26, sm: 30, xl: 34 },
+              fontSize: compact
+                ? { xs: 15, sm: 16 }
+                : { xs: 26, sm: 30, xl: 34 },
               fontWeight: 600,
+              lineHeight: compact ? 1.15 : undefined,
             }}
           >
             {value}
           </Typography>
-          {subtitle ? (
+          {subtitle && !compact ? (
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>
               {subtitle}
             </Typography>
           ) : null}
         </Box>
 
-        <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1.25} flexShrink={0}>
+        <Box
+          display="flex"
+          flexDirection={compact ? "row" : "column"}
+          alignItems="center"
+          gap={compact ? 0.75 : 1.25}
+          flexShrink={0}
+        >
           {icon ? (
             <Box
               sx={{
-                width: { xs: 40, xl: 46 },
-                height: { xs: 40, xl: 46 },
+                width: compact ? 24 : { xs: 40, xl: 46 },
+                height: compact ? 24 : { xs: 40, xl: 46 },
                 borderRadius: 1,
                 display: "flex",
                 alignItems: "center",
@@ -124,6 +147,7 @@ export default function StatCard({
                 color: accent,
                 transition: "transform 0.25s ease",
                 ".MuiPaper-root:hover &": { transform: "scale(1.06)" },
+                "& .MuiSvgIcon-root": compact ? { fontSize: 14 } : undefined,
               }}
             >
               {icon}
@@ -134,19 +158,19 @@ export default function StatCard({
             <Box
               className="stat-arrow"
               sx={{
-                width: 28,
-                height: 28,
+                width: compact ? 20 : 28,
+                height: compact ? 20 : 28,
                 borderRadius: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 bgcolor: `${accent}12`,
                 color: accent,
-                mt: icon ? 0 : "auto",
+                mt: icon && !compact ? 0 : compact ? 0 : "auto",
                 transition: "background-color 0.2s ease, color 0.2s ease, transform 0.2s ease",
               }}
             >
-              <ArrowForwardRoundedIcon sx={{ fontSize: 16 }} />
+              <ArrowForwardRoundedIcon sx={{ fontSize: compact ? 14 : 16 }} />
             </Box>
           ) : null}
         </Box>

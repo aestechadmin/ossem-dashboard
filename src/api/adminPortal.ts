@@ -41,7 +41,14 @@ export type HostelOverviewStats = {
   mensHostelStudents: number;
   womenHostelStudents: number;
   hostels?: Array<{ id: number; label: string }>;
-  rooms?: Array<{ id: number; label: string; hostelId?: number | null }>;
+  rooms?: Array<{
+    id: number;
+    label: string;
+    roomNo?: string;
+    category?: string | null;
+    hostelId?: number | null;
+  }>;
+  roomCategories?: Array<{ label: string; value: string } | string>;
 };
 
 export type HostelStudentItem = {
@@ -54,6 +61,7 @@ export type HostelStudentItem = {
   specialization: string;
   courseYear: string;
   room: string;
+  roomCategory?: string;
   block: string;
 };
 
@@ -265,6 +273,12 @@ export type StudentItem = {
   specialization: string;
   academicYear: string;
   courseYear: string;
+  hostelRoom?: string | null;
+  hostelBlock?: string | null;
+  roomCategory?: string | null;
+  hostelAllocated?: boolean;
+  feePaid?: boolean | null;
+  feeStatus?: "Paid" | "Unpaid" | "No fee";
 };
 
 export async function fetchStudents(
@@ -591,8 +605,11 @@ export async function fetchHostelOverview(
   filters?: {
     course?: string;
     specialization?: string;
+    academicYear?: string;
+    courseYear?: string;
     hostel?: string;
     room?: string;
+    category?: string;
   }
 ) {
   const { data } = await api.get<HostelOverviewStats>("/admin-portal/hostel/overview", {
@@ -600,8 +617,11 @@ export async function fetchHostelOverview(
       branch: branch || undefined,
       course: filters?.course || undefined,
       specialization: filters?.specialization || undefined,
+      academicYear: filters?.academicYear || undefined,
+      courseYear: filters?.courseYear || undefined,
       hostel: filters?.hostel || undefined,
       room: filters?.room || undefined,
+      category: filters?.category || undefined,
     },
   });
   return data;
@@ -659,8 +679,11 @@ export type HostelRoomStatusFilter =
 export type HostelListFilters = {
   course?: string;
   specialization?: string;
+  academicYear?: string;
+  courseYear?: string;
   hostel?: string;
   room?: string;
+  category?: string;
   student?: string;
 };
 
@@ -703,8 +726,11 @@ export async function fetchHostelStudents(
         gender: gender && gender !== "all" ? gender : undefined,
         course: filters?.student ? undefined : filters?.course || undefined,
         specialization: filters?.student ? undefined : filters?.specialization || undefined,
+        academicYear: filters?.student ? undefined : filters?.academicYear || undefined,
+        courseYear: filters?.student ? undefined : filters?.courseYear || undefined,
         hostel: filters?.hostel || undefined,
         room: filters?.room || undefined,
+        category: filters?.category || undefined,
         student: filters?.student || undefined,
       },
     }

@@ -14,6 +14,7 @@ import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
+  fetchFilters,
   fetchHostelBlocks,
   fetchHostelHostels,
   fetchHostelOverview,
@@ -22,6 +23,7 @@ import {
   fetchHostelStudents,
   type HostelOverviewStats,
   type HostelRoomStatusFilter,
+  type PortalFilters,
 } from "@/api/adminPortal";
 import DataTableCard, { type Column, type PageSizeOption } from "@/components/DataTableCard";
 import PageHeader from "@/components/PageHeader";
@@ -30,7 +32,17 @@ import StatCard from "@/components/StatCard";
 import StudentNameLink from "@/components/StudentNameLink";
 import ViewStudentButton from "@/components/ViewStudentButton";
 import { useAuthStore } from "@/store/authStore";
+import { useFilterStore } from "@/store/filterStore";
 import { toastError } from "@/store/toastStore";
+import { getCascadedOptions, pruneStudentFilters } from "@/utils/cascadeFilters";
+
+const emptyPortalFilters: PortalFilters = {
+  courses: [],
+  specializations: [],
+  academicYears: [],
+  courseYears: [],
+  classrooms: [],
+};
 
 type ListKind =
   | "hostels"
@@ -111,22 +123,28 @@ function isRoomsKind(kind: ListKind) {
 export default function HostelListPage() {
   const navigate = useNavigate();
   const { kind } = useParams<{ kind: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const selectedBranchId = useAuthStore((s) => s.selectedBranchId);
   const selectedCourseId = useAuthStore((s) => s.selectedCourseId);
   const courses = useAuthStore((s) => s.courses);
   const course = selectedCourseId != null ? String(selectedCourseId) : "";
   const courseName =
     courses.find((c) => c.id === selectedCourseId)?.name || "Selected course";
+  const hostelFilters = useFilterStore((s) => s.hostel);
+  const setHostelFilters = useFilterStore((s) => s.setHostelFilters);
 
   const listKind = (kind || "") as ListKind;
   const roomStatusFilter = roomStatusFromKind(listKind);
   const meta = titles[listKind];
 
-  const hostel = searchParams.get("hostel") || "";
-  const room = searchParams.get("room") || "";
+  const hostel = hostelFilters.hostel;
+  const room = hostelFilters.room;
+  const category = hostelFilters.category || "";
+  const academicYear = hostelFilters.academicYear;
+  const courseYear = hostelFilters.courseYear;
   const studentId = searchParams.get("student") || "";
 
+  const [allOptions, setAllOptions] = useState<PortalFilters>(emptyPortalFilters);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [stats, setStats] = useState<HostelOverviewStats | null>(null);
   const [total, setTotal] = useState(0);
@@ -138,12 +156,43 @@ export default function HostelListPage() {
   const showHostelRoomFilters = isRoomsKind(listKind) || isStudentsKind(listKind);
   const showCourseFilters = isStudentsKind(listKind);
 
+  const yearOptions = useMemo(
+    () =>
+      getCascadedOptions(allOptions, {
+        course,
+        specialization: "",
+        academicYear,
+      }),
+    [allOptions, course, academicYear]
+  );
+
   const hostelOptions = stats?.hostels || [];
   const roomOptions = useMemo(() => {
     const rooms = stats?.rooms || [];
     if (!hostel) return rooms;
     return rooms.filter((r) => String(r.hostelId || "") === String(hostel));
   }, [stats?.rooms, hostel]);
+  const roomCategories = useMemo(() => {
+    const raw = stats?.roomCategories || [];
+    return raw
+      .map((item) => {
+        if (typeof item === "string") {
+          const value = item.trim();
+          return value ? { label: value, value } : null;
+        }
+        const value = String(item?.value || "").trim();
+        const label = String(item?.label || value).trim();
+        return value ? { label: label || value, value } : null;
+      })
+      .filter(Boolean) as Array<{ label: string; value: string }>;
+  }, [stats?.roomCategories]);
+
+  useEffect(() => {
+    if (selectedBranchId == null) return;
+    fetchFilters(selectedBranchId)
+      .then(setAllOptions)
+      .catch(() => setAllOptions(emptyPortalFilters));
+  }, [selectedBranchId]);
 
   useEffect(() => {
     if (!meta) return;
@@ -153,8 +202,11 @@ export default function HostelListPage() {
       try {
         const data = await fetchHostelOverview(selectedBranchId, {
           course: showCourseFilters ? course || undefined : undefined,
+          academicYear: showCourseFilters ? academicYear || undefined : undefined,
+          courseYear: showCourseFilters ? courseYear || undefined : undefined,
           hostel: hostel || undefined,
           room: room || undefined,
+          category: category || undefined,
         });
         if (active) setStats(data);
       } catch {
@@ -166,7 +218,17 @@ export default function HostelListPage() {
     return () => {
       active = false;
     };
-  }, [meta, selectedBranchId, course, hostel, room, showCourseFilters]);
+  }, [
+    meta,
+    selectedBranchId,
+    course,
+    hostel,
+    room,
+    category,
+    academicYear,
+    courseYear,
+    showCourseFilters,
+  ]);
 
   useEffect(() => {
     if (!meta) return;
@@ -179,8 +241,13 @@ export default function HostelListPage() {
         const filters = {
           course:
             studentId || !isStudentsKind(listKind) ? undefined : course || undefined,
+          academicYear:
+            studentId || !isStudentsKind(listKind) ? undefined : academicYear || undefined,
+          courseYear:
+            studentId || !isStudentsKind(listKind) ? undefined : courseYear || undefined,
           hostel: studentId ? undefined : hostel || undefined,
           room: studentId ? undefined : room || undefined,
+          category: studentId ? undefined : category || undefined,
           student: isStudentsKind(listKind) ? studentId || undefined : undefined,
         };
         let data: {
@@ -226,17 +293,35 @@ export default function HostelListPage() {
     course,
     hostel,
     room,
+    category,
+    academicYear,
+    courseYear,
     studentId,
   ]);
 
-  function setFilterParam(key: "hostel" | "room", value: string) {
-    const next = new URLSearchParams(searchParams);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key === "hostel") next.delete("room");
-    next.delete("specialization");
+  function applyHostelFilters(patch: Partial<typeof hostelFilters>) {
+    const pruned = pruneStudentFilters(allOptions, {
+      course,
+      specialization: "",
+      academicYear: patch.academicYear ?? academicYear,
+      courseYear: patch.courseYear ?? courseYear,
+    });
     setPage(1);
-    setSearchParams(next, { replace: true });
+    setHostelFilters({
+      academicYear: pruned.academicYear,
+      courseYear: pruned.courseYear,
+      hostel: Object.prototype.hasOwnProperty.call(patch, "hostel")
+        ? String(patch.hostel || "")
+        : hostel,
+      room: Object.prototype.hasOwnProperty.call(patch, "room")
+        ? String(patch.room || "")
+        : Object.prototype.hasOwnProperty.call(patch, "hostel") && !patch.hostel
+          ? ""
+          : room,
+      category: Object.prototype.hasOwnProperty.call(patch, "category")
+        ? String(patch.category || "")
+        : category,
+    });
   }
 
   const columns: Column<Record<string, unknown>>[] = useMemo(() => {
@@ -287,8 +372,12 @@ export default function HostelListPage() {
       }
       cols.push(
         { key: "courseYear", label: "Year", render: (r) => String(r.courseYear || "—") },
-        { key: "block", label: "Block", render: (r) => String(r.block || "—") },
         { key: "room", label: "Room", render: (r) => String(r.room || "—") },
+        {
+          key: "roomCategory",
+          label: "Room category",
+          render: (r) => String(r.roomCategory || "—"),
+        },
         {
           key: "view",
           label: "Action",
@@ -358,6 +447,46 @@ export default function HostelListPage() {
           }}
         >
           <Grid container spacing={2}>
+            {showCourseFilters ? (
+              <>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small" disabled={!course}>
+                    <InputLabel>Academic Year</InputLabel>
+                    <Select
+                      label="Academic Year"
+                      value={academicYear}
+                      onChange={(e) =>
+                        applyHostelFilters({ academicYear: e.target.value, courseYear: "" })
+                      }
+                    >
+                      <MenuItem value="">All</MenuItem>
+                      {yearOptions.academicYears.map((item) => (
+                        <MenuItem key={item.id} value={String(item.id)}>
+                          {item.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small" disabled={!academicYear}>
+                    <InputLabel>Course Year</InputLabel>
+                    <Select
+                      label="Course Year"
+                      value={courseYear}
+                      onChange={(e) => applyHostelFilters({ courseYear: e.target.value })}
+                    >
+                      <MenuItem value="">All</MenuItem>
+                      {yearOptions.courseYears.map((item) => (
+                        <MenuItem key={item.id} value={String(item.id)}>
+                          {item.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            ) : null}
             {showHostelRoomFilters ? (
               <>
                 <Grid item xs={12} sm={6} md={3}>
@@ -366,7 +495,9 @@ export default function HostelListPage() {
                     <Select
                       label="Hostel"
                       value={hostel}
-                      onChange={(e) => setFilterParam("hostel", e.target.value)}
+                      onChange={(e) =>
+                        applyHostelFilters({ hostel: e.target.value, room: "" })
+                      }
                     >
                       <MenuItem value="">All hostels</MenuItem>
                       {hostelOptions.map((h) => (
@@ -383,12 +514,29 @@ export default function HostelListPage() {
                     <Select
                       label="Room"
                       value={room}
-                      onChange={(e) => setFilterParam("room", e.target.value)}
+                      onChange={(e) => applyHostelFilters({ room: e.target.value })}
                     >
                       <MenuItem value="">All rooms</MenuItem>
                       {roomOptions.map((r) => (
                         <MenuItem key={r.id} value={String(r.id)}>
                           {r.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      label="Category"
+                      value={category}
+                      onChange={(e) => applyHostelFilters({ category: e.target.value })}
+                    >
+                      <MenuItem value="">All categories</MenuItem>
+                      {roomCategories.map((c) => (
+                        <MenuItem key={c.value} value={c.value}>
+                          {c.label}
                         </MenuItem>
                       ))}
                     </Select>

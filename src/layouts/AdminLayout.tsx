@@ -13,7 +13,6 @@ import {
   // Drawer, // left menu hidden
   // FormControl, InputAdornment, InputLabel, Select — used by commented institution/course dropdowns
   IconButton,
-  InputBase,
   List,
   ListItemButton,
   ListItemIcon,
@@ -52,8 +51,6 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import BusinessRoundedIcon from "@mui/icons-material/BusinessRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { fetchBranches, fetchFilters } from "@/api/adminPortal";
@@ -137,36 +134,6 @@ const pageTitles: Record<string, string> = {
   "/bank-accounts": "Bank Account",
 };
 
-const searchableMenus = [
-  // Student life-cycle shortcuts only (left menu hidden)
-  { label: "Students", path: "/students", group: "Students" },
-  { label: "Fees", path: "/fees", group: "Students" },
-  { label: "Hostel", path: "/hostel", group: "Students" },
-  { label: "Attendance", path: "/attendance", group: "Students" },
-  { label: "Hostels", path: "/hostel/hostels", group: "Hostel" },
-  { label: "Hostel Students", path: "/hostel/students", group: "Hostel" },
-  { label: "Quarters", path: "/hostel/quarters", group: "Hostel" },
-  { label: "Blocks", path: "/hostel/blocks", group: "Hostel" },
-  { label: "Rooms", path: "/hostel/rooms", group: "Hostel" },
-  // ...navItems.flatMap((item) =>
-  //   item.children?.length
-  //     ? item.children.map((child) => ({
-  //         label: child.label,
-  //         path: child.path,
-  //         group: item.label,
-  //       }))
-  //     : item.path
-  //       ? [{ label: item.label, path: item.path, group: "Main" }]
-  //       : []
-  // ),
-  // { label: "Department List", path: "/departments/list", group: "Academics" },
-  // { label: "Courses", path: "/departments/courses", group: "Academics" },
-  // { label: "Specializations", path: "/departments/specializations", group: "Academics" },
-  // { label: "Classrooms", path: "/departments/classrooms", group: "Academics" },
-  // { label: "Subjects", path: "/departments/subjects", group: "Academics" },
-  // { label: "Class Schedules", path: "/departments/schedules", group: "Academics" },
-];
-
 const accountsChildPaths = accountsChildren.map((c) => c.path);
 
 const COLLAPSED_WIDTH = 72;
@@ -183,12 +150,8 @@ export default function AdminLayout() {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchAnchor, setSearchAnchor] = useState<HTMLElement | null>(null);
   const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
   const closeTimer = useRef<number | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setExpanded(isDesktop);
@@ -344,35 +307,6 @@ export default function AdminLayout() {
       );
     return match ? pageTitles[match] : "OSSEM";
   }, [location.pathname]);
-
-  const menuSearchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return searchableMenus;
-    return searchableMenus.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q) ||
-        item.path.toLowerCase().includes(q) ||
-        item.group.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
-
-  function openMenuSearch(el: HTMLElement) {
-    setSearchAnchor(el);
-    setSearchOpen(true);
-    setSearchQuery("");
-    window.setTimeout(() => searchInputRef.current?.focus(), 50);
-  }
-
-  function closeMenuSearch() {
-    setSearchOpen(false);
-    setSearchAnchor(null);
-    setSearchQuery("");
-  }
-
-  function goToMenuPath(path: string) {
-    navigate(path);
-    closeMenuSearch();
-  }
 
   const railExpanded = isDesktop ? expanded : true;
   // Left menu hidden for student life-cycle — full-width content
@@ -909,21 +843,6 @@ export default function AdminLayout() {
               order: { xs: 2, sm: 0 },
             }}
           >
-          <Tooltip title="Search menu">
-            <IconButton
-              aria-label="Search menu"
-              onClick={(e) => openMenuSearch(e.currentTarget)}
-              sx={{
-                border: "1px solid",
-                borderColor: searchOpen ? "primary.main" : "divider",
-                borderRadius: 1,
-                bgcolor: searchOpen ? "rgba(11,44,52,0.04)" : "#F4F7F8",
-              }}
-            >
-              <SearchRoundedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
           <Tooltip title="Notifications">
             <IconButton
               aria-label="Notifications"
@@ -940,85 +859,6 @@ export default function AdminLayout() {
               </Badge>
             </IconButton>
           </Tooltip>
-
-          <Popover
-            open={searchOpen}
-            anchorEl={searchAnchor}
-            onClose={closeMenuSearch}
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            transformOrigin={{ vertical: "top", horizontal: "right" }}
-            slotProps={{
-              paper: {
-                sx: {
-                  mt: 1,
-                  width: { xs: 300, sm: 360 },
-                  borderRadius: 1,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  boxShadow: "0 12px 32px rgba(11,44,52,0.12)",
-                  overflow: "hidden",
-                },
-              },
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                px: 1.5,
-                py: 1,
-                borderBottom: "1px solid",
-                borderColor: "divider",
-                bgcolor: "#F4F7F8",
-              }}
-            >
-              <SearchRoundedIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-              <InputBase
-                inputRef={searchInputRef}
-                fullWidth
-                placeholder="Search menu…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && menuSearchResults[0]) {
-                    goToMenuPath(menuSearchResults[0].path);
-                  }
-                  if (e.key === "Escape") closeMenuSearch();
-                }}
-                sx={{ fontSize: 14, fontWeight: 500 }}
-              />
-              {searchQuery ? (
-                <IconButton size="small" onClick={() => setSearchQuery("")} aria-label="Clear">
-                  <CloseRoundedIcon fontSize="small" />
-                </IconButton>
-              ) : null}
-            </Box>
-            <List dense sx={{ maxHeight: 320, overflow: "auto", py: 0.5 }}>
-              {menuSearchResults.length === 0 ? (
-                <Box px={2} py={2}>
-                  <Typography fontSize={13} color="text.secondary">
-                    No menu matches “{searchQuery}”
-                  </Typography>
-                </Box>
-              ) : (
-                menuSearchResults.map((item) => (
-                  <ListItemButton
-                    key={`${item.group}-${item.path}`}
-                    onClick={() => goToMenuPath(item.path)}
-                    sx={{ borderRadius: 1, mx: 0.75, my: 0.25 }}
-                  >
-                    <ListItemText
-                      primary={item.label}
-                      secondary={item.group}
-                      primaryTypographyProps={{ fontSize: 14, fontWeight: 600 }}
-                      secondaryTypographyProps={{ fontSize: 11 }}
-                    />
-                  </ListItemButton>
-                ))
-              )}
-            </List>
-          </Popover>
 
           <Popover
             open={Boolean(notifAnchor)}
