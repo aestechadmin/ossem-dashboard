@@ -93,6 +93,7 @@ export const useAuthStore = create<AuthState>()(
         const list = branches || [];
         // Always prefer GEMS after OTP/login (ignore API branchId / Bollineni default)
         set({
+          hasHydrated: true,
           jwt,
           user,
           adminSessionId: sessionId,

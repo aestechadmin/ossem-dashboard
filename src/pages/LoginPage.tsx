@@ -41,7 +41,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (!hasHydrated) return;
     const state = useAuthStore.getState();
-    if (state.jwt && !state.adminSessionId) {
+    // Orphan JWT with no session — but never wipe mid-OTP claim (otpToken set).
+    if (state.jwt && !state.adminSessionId && !state.otpToken) {
       state.logout();
     }
     if (sessionStorage.getItem(SESSION_REVOKED_STORAGE_KEY)) {

@@ -60,7 +60,10 @@ export default function OtpPage() {
         return;
       }
       await completeAdminLogin(data);
-      navigate("/", { replace: true });
+      // Hard navigate so ProtectedRoute never races a half-hydrated SPA state
+      // back to /login (refresh used to "fix" that bounce).
+      window.location.replace("/");
+      return;
     } catch (err: any) {
       setError(
         err?.message ||

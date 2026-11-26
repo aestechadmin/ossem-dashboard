@@ -8,12 +8,15 @@ export async function completeAdminLogin(data: LoginVerifyResponse) {
     throw new Error("Login succeeded but no JWT was returned");
   }
 
-  // Put JWT in store for the claim request only — do not clear OTP / session yet
-  // (avoids OtpPage redirecting to "/" mid-claim and double-claiming).
+  // Put JWT in store for the claim request only — keep OTP pending until claim succeeds
+  // (avoids OtpPage bouncing to /login mid-claim).
   useAuthStore.getState().setJwtForClaim(data.jwt, data.user);
 
   try {
     const sessionId = await claimAdminPortalSession();
+    if (!sessionId) {
+      throw new Error("Could not start session. Please try again.");
+    }
     useAuthStore
       .getState()
       .finishLogin(data.jwt, data.user, sessionId, data.branches || [], data.branchId);
@@ -22,14 +25,15 @@ export async function completeAdminLogin(data: LoginVerifyResponse) {
     const message =
       err?.response?.data?.error?.message ||
       err?.response?.data?.message ||
+      err?.message ||
       "";
 
-    useAuthStore.getState().logout(
-      "auth_error",
-      status === 403 || /only admin/i.test(String(message))
-        ? "Only admin users can sign in"
-        : "Could not start session. Please try again."
-    );
+    // Clear half-login JWT only — keep otpToken so OtpPage can show the error.
+    useAuthStore.setState({
+      jwt: null,
+      user: null,
+      adminSessionId: null,
+    });
 
     throw new Error(
       status === 403 || /only admin/i.test(String(message))

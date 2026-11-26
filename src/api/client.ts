@@ -77,6 +77,10 @@ api.interceptors.response.use(
     if (/\/admin-portal\/claim-session/i.test(url)) {
       return Promise.reject(error);
     }
+    // Never wipe a brand-new session while OTP/login is still finishing
+    if (useAuthStore.getState().otpToken) {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status === 401) {
       const requestConfig = error.config as AuthTrackedConfig | undefined;
