@@ -23,18 +23,25 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
       minHeight="100vh"
       sx={{
         display: "grid",
+        // Form first on phone so the first screen is not an empty-looking hero
         gridTemplateColumns: { xs: "1fr", lg: "1.08fr 0.92fr" },
+        gridTemplateRows: { xs: "auto auto", lg: "1fr" },
+        gridTemplateAreas: {
+          xs: `"form" "brand"`,
+          lg: `"brand form"`,
+        },
       }}
     >
       <Box
         sx={{
+          gridArea: "brand",
           position: "relative",
-          minHeight: { xs: 300, lg: "100vh" },
+          minHeight: { xs: "auto", lg: "100vh" },
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
           px: { xs: 3, sm: 5, lg: 7 },
-          py: { xs: 4, lg: 7 },
+          py: { xs: 3, lg: 7 },
           color: "#F7FAFB",
           overflow: "hidden",
           backgroundColor: "#07181D",
@@ -277,9 +284,11 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
 
       <Box
         sx={{
+          gridArea: "form",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          minHeight: { xs: "100vh", lg: "auto" },
           px: { xs: 2.5, sm: 4, md: 6 },
           py: { xs: 4, md: 6 },
           bgcolor: "#EEF2F4",
