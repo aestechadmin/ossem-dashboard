@@ -184,15 +184,22 @@ export const useAuthStore = create<AuthState>()(
         selectedCourseId: state.selectedCourseId,
       }),
       onRehydrateStorage: () => (state, _error) => {
-        if (state?.jwt && (!state.adminSessionId || isJwtExpired(state.jwt))) {
+        try {
+          if (state?.jwt && (!state.adminSessionId || isJwtExpired(state.jwt))) {
+            useAuthStore.getState().logout();
+          } else if (
+            state?.branches?.length &&
+            (state.selectedBranchId == null ||
+              !state.branches.some((b) => b.id === state.selectedBranchId))
+          ) {
+            const id = pickDefaultBranch(state.branches);
+            if (id != null) useAuthStore.getState().setSelectedBranch(id);
+          }
+        } catch {
           useAuthStore.getState().logout();
-        } else if (
-          state?.branches?.length &&
-          (state.selectedBranchId == null ||
-            !state.branches.some((b) => b.id === state.selectedBranchId))
-        ) {
-          const id = pickDefaultBranch(state.branches);
-          if (id != null) useAuthStore.getState().setSelectedBranch(id);
+        } finally {
+          // Always clear the boot spinner — never leave the UI stuck on hydrate.
+          useAuthStore.getState().setHasHydrated(true);
         }
       },
     }
@@ -207,4 +214,6 @@ if (typeof window !== "undefined") {
   if (useAuthStore.persist.hasHydrated()) {
     markAuthHydrated();
   }
+  // Failsafe if storage never finishes (private mode / blocked localStorage).
+  window.setTimeout(markAuthHydrated, 300);
 }

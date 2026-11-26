@@ -49,7 +49,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const jwt = useAuthStore((s) => s.jwt);
   const adminSessionId = useAuthStore((s) => s.adminSessionId);
   const logout = useAuthStore((s) => s.logout);
+  const setHasHydrated = useAuthStore((s) => s.setHasHydrated);
   const location = useLocation();
+
+  useEffect(() => {
+    if (hasHydrated) return;
+    const t = window.setTimeout(() => setHasHydrated(true), 400);
+    return () => window.clearTimeout(t);
+  }, [hasHydrated, setHasHydrated]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -72,8 +79,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     };
   }, [hasHydrated, jwt, adminSessionId, location.pathname]);
 
-  // Wait for persisted auth before deciding. Redirecting during hydration can
-  // send a freshly verified OTP session back to /login until the next refresh.
+  // Wait briefly for persisted auth. If hydrate never finishes, send to login
+  // instead of spinning forever.
   if (!hasHydrated) {
     return <AuthBootScreen />;
   }
