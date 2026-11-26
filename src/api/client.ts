@@ -3,7 +3,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useLoadingStore } from "@/store/loadingStore";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:1337/api",
+  baseURL: import.meta.env.VITE_API_URL || "https://gems.myossem.com/api",
   headers: {
     "Content-Type": "application/json",
   },

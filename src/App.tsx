@@ -1,3 +1,4 @@
+import { Box, CircularProgress } from "@mui/material";
 import { useEffect } from "react";
 import {
   BrowserRouter,
@@ -28,6 +29,20 @@ import ToastHost from "@/components/ToastHost";
 import { checkAdminPortalSession } from "@/api/session";
 import { useAuthStore } from "@/store/authStore";
 import { isJwtExpired } from "@/utils/jwt";
+
+function AuthBootScreen() {
+  return (
+    <Box
+      minHeight="100vh"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      bgcolor="#F4F7F8"
+    >
+      <CircularProgress size={32} thickness={4} sx={{ color: "#0B2C34" }} />
+    </Box>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
@@ -60,7 +75,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Wait for persisted auth before deciding. Redirecting during hydration can
   // send a freshly verified OTP session back to /login until the next refresh.
   if (!hasHydrated) {
-    return null;
+    return <AuthBootScreen />;
   }
 
   if (!jwt || isJwtExpired(jwt) || !adminSessionId) {
