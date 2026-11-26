@@ -27,11 +27,12 @@ export async function loginWithPassword(identifier: string, password: string) {
   return data;
 }
 
-/** Phone login — 10-digit mobile, password omitted (same as ossem-frontend). */
+/** Phone login — 10-digit mobile. adminPortal gates staff types before OTP. */
 export async function loginWithPhone(mobile: string) {
   const { data } = await api.post<LoginStartResponse>("/auth/local", {
     identifier: mobile,
     password: null,
+    adminPortal: true,
   });
   return data;
 }
@@ -41,6 +42,7 @@ export async function verifyOtp(token: string, code: string) {
     token,
     // Backend compares lastOtp (number) with !== — send numeric code
     code: Number(code),
+    adminPortal: true,
   });
   return data;
 }

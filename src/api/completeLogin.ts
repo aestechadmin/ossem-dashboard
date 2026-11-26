@@ -36,8 +36,8 @@ export async function completeAdminLogin(data: LoginVerifyResponse) {
     });
 
     throw new Error(
-      status === 403 || /only admin/i.test(String(message))
-        ? "Only admin users can sign in"
+      status === 403 || /only admin|superadmin|management/i.test(String(message))
+        ? "Only admin, superadmin, or management users can sign in"
         : "Could not start session. Please try again."
     );
   }
